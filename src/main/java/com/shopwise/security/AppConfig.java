@@ -77,6 +77,8 @@ public class AppConfig {
                         .requestMatchers("/api/products/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/employees/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/expenses/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/sales/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/daily-summaries/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/collaborators/**").permitAll() // Allow access to confirm collaboration
                         .anyRequest().authenticated()
                 )

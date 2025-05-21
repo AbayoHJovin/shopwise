@@ -11,7 +11,7 @@ public class ExpenseException extends RuntimeException {
     }
 
     public HttpStatus getStatus() {
-        return status;
+        return status;  
     }
 
     public static ExpenseException notFound(String message) {
