@@ -74,6 +74,9 @@ public class AppConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/business/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/products/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/employees/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/collaborators/**").permitAll() // Allow access to confirm collaboration
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
