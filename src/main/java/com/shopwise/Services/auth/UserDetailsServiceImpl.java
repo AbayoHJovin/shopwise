@@ -43,7 +43,6 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                     Collections.singletonList(authority)
             );
         }
-// df
         throw new UsernameNotFoundException("User or Employee not found with email: " + email);
     }
 

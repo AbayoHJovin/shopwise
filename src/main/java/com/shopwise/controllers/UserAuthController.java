@@ -41,13 +41,13 @@ public class UserAuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             
             // Get the user details
-            User user = userService.getUserByEmail(request.getEmail());
+            User user = userService.getUserByEmailAndPassword(request.getEmail(),request.getPassword());
             
             // Generate JWT token
             String jwt = jwtService.generateToken(user);
             
             // Set the token in an HTTP-only cookie
-            Cookie cookie = new Cookie("token", jwt);
+            Cookie cookie = new Cookie("accessToken", jwt);
             cookie.setHttpOnly(true);
             cookie.setPath("/");
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
@@ -88,7 +88,7 @@ public class UserAuthController {
         SecurityContextHolder.clearContext();
         
         // Clear the authentication cookie
-        Cookie cookie = new Cookie("token", null);
+        Cookie cookie = new Cookie("accessToken", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         cookie.setMaxAge(0); // Expire immediately
@@ -108,7 +108,7 @@ public class UserAuthController {
         
         if (cookies != null) {
             for (Cookie cookie : cookies) {
-                if ("token".equals(cookie.getName())) {
+                if ("accessToken".equals(cookie.getName())) {
                     token = cookie.getValue();
                     break;
                 }
@@ -122,22 +122,18 @@ public class UserAuthController {
         }
         
         try {
-            // Extract user ID from token
             String userId = jwtService.extractUserId(token);
             String userType = jwtService.extractType(token);
             
-            // Only handle user authentication in this controller
             if (!"user".equals(userType)) {
                 Map<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("error", "Invalid authentication type");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
             
-            // Get user details from token subject (email)
             String email = jwtService.extractClaims(token).getSubject();
             User user = userService.getUserByEmail(email);
             
-            // Return user details (excluding sensitive information)
             Map<String, Object> userDetails = new HashMap<>();
             userDetails.put("id", user.getId().toString());
             userDetails.put("name", user.getName());

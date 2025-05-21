@@ -22,7 +22,7 @@ public class UserService {
         }
         UUID userId = UUID.randomUUID();
         User user = new User(userId, request.getName(), request.getPhone(), request.getEmail(), 
-                passwordEncoder.encode(request.getPassword())); // Ensure password is encoded
+                passwordEncoder.encode(request.getPassword()));
         user.setRole(User.UserRoles.USER);
         return userRepository.save(user);
     }
