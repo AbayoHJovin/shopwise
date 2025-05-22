@@ -6,6 +6,7 @@ import com.shopwise.Dto.salerecord.SaleRecordUpdateRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.ProductRepository;
 import com.shopwise.Repository.SaleRecordRepository;
+import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Business;
 import com.shopwise.models.Product;
 import com.shopwise.models.SaleRecord;
@@ -27,6 +28,7 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     private final SaleRecordRepository saleRecordRepository;
     private final BusinessRepository businessRepository;
     private final ProductRepository productRepository;
+    private final DailySummaryService dailySummaryService;
 
     @Override
     @Transactional
@@ -91,6 +93,13 @@ public class SaleRecordServiceImpl implements SaleRecordService {
         
         product.setPackets(newPackets);
         productRepository.save(product);
+        
+        // Log the sale in daily summary
+        double totalValue = savedSaleRecord.getQuantitySold() * product.getPricePerItem();
+        String formattedAmount = String.format("%.2f", totalValue);
+        dailySummaryService.logDailyAction(businessId, 
+                "Sale recorded: " + savedSaleRecord.getQuantitySold() + " units of '" + 
+                product.getName() + "' for a total of " + formattedAmount);
         
         // Return response
         return mapToSaleRecordResponse(savedSaleRecord);
@@ -249,6 +258,37 @@ public class SaleRecordServiceImpl implements SaleRecordService {
         
         // Save updated sale record
         SaleRecord updatedSaleRecord = saleRecordRepository.save(saleRecord);
+        
+        // Log the sale update in daily summary
+        Product updatedProduct = updatedSaleRecord.getProduct();
+        double totalValue = updatedSaleRecord.getQuantitySold() * updatedProduct.getPricePerItem();
+        String formattedAmount = String.format("%.2f", totalValue);
+        
+        StringBuilder updateDetails = new StringBuilder();
+        updateDetails.append("Sale updated for product '").append(updatedProduct.getName()).append("': ");
+        
+        if (request.getProductId() != null && !request.getProductId().equals(product.getId())) {
+            updateDetails.append("product changed, ");
+        }
+        
+        if (request.getQuantitySold() != null && request.getQuantitySold() != originalQuantitySold) {
+            updateDetails.append("quantity changed from ").append(originalQuantitySold)
+                    .append(" to ").append(request.getQuantitySold()).append(", ");
+        }
+        
+        if (request.getSaleTime() != null) {
+            updateDetails.append("sale time updated, ");
+        }
+        
+        // Remove trailing comma and space if present
+        String logMessage = updateDetails.toString();
+        if (logMessage.endsWith(", ")) {
+            logMessage = logMessage.substring(0, logMessage.length() - 2);
+        }
+        
+        logMessage += ". New total value: " + formattedAmount;
+        
+        dailySummaryService.logDailyAction(updatedSaleRecord.getBusiness().getId(), logMessage);
         
         // Return response
         return mapToSaleRecordResponse(updatedSaleRecord);

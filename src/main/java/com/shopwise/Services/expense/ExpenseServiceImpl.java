@@ -4,6 +4,7 @@ import com.shopwise.Dto.expense.ExpenseRequest;
 import com.shopwise.Dto.expense.ExpenseResponse;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.ExpenseRepository;
+import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Business;
 import com.shopwise.models.Expense;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final BusinessRepository businessRepository;
+    private final DailySummaryService dailySummaryService;
 
     @Override
     @Transactional
@@ -47,6 +49,12 @@ public class ExpenseServiceImpl implements ExpenseService {
         
         // Save expense
         Expense savedExpense = expenseRepository.save(expense);
+        
+        // Log the expense creation in daily summary
+        String formattedAmount = String.format("%.2f", savedExpense.getAmount());
+        dailySummaryService.logDailyAction(businessId, 
+                "Expense '" + savedExpense.getTitle() + "' of amount " + formattedAmount + 
+                " in category '" + savedExpense.getCategory() + "' was recorded");
         
         // Return response
         return mapToExpenseResponse(savedExpense);
@@ -101,8 +109,19 @@ public class ExpenseServiceImpl implements ExpenseService {
         Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> ExpenseException.notFound("Expense not found with ID: " + expenseId));
         
+        // Get business ID before deleting the expense
+        UUID businessId = expense.getBusiness().getId();
+        String expenseTitle = expense.getTitle();
+        String formattedAmount = String.format("%.2f", expense.getAmount());
+        String category = expense.getCategory();
+        
         // Delete expense
         expenseRepository.delete(expense);
+        
+        // Log the expense deletion in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Expense '" + expenseTitle + "' of amount " + formattedAmount + 
+                " in category '" + category + "' was deleted");
     }
     
     // Helper method to map Expense entity to ExpenseResponse DTO

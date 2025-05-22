@@ -5,6 +5,7 @@ import com.shopwise.Dto.Request.CreateBusinessRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.CollaborationRequestRepository;
 import com.shopwise.Repository.UserRepository;
+import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Business;
 import com.shopwise.models.CollaborationRequest;
 import com.shopwise.models.User;
@@ -26,6 +27,7 @@ public class BusinessServiceImpl implements BusinessService {
     private final BusinessRepository  businessRepository;
     private final UserRepository userRepository;
     private final CollaborationRequestRepository collaborationRequestRepository;
+    private final DailySummaryService dailySummaryService;
     
     private static final int TOKEN_EXPIRY_DAYS = 7;
 
@@ -51,6 +53,10 @@ public class BusinessServiceImpl implements BusinessService {
         business.setAvailability(new ArrayList<>());
         
         Business savedBusiness = businessRepository.save(business);
+        
+        // Log the business creation in daily summary
+        dailySummaryService.logDailyAction(savedBusiness.getId(), 
+                "Business '" + savedBusiness.getName() + "' was created by " + owner.getEmail());
         
         return mapToDto(savedBusiness);
     }
@@ -97,6 +103,10 @@ public class BusinessServiceImpl implements BusinessService {
         
         collaborationRequestRepository.save(request);
         
+        // Log the invitation in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Collaboration invitation sent to " + email + " by " + owner.getEmail());
+        
         // In a real application, we would send an email with the invitation link here
     }
 
@@ -118,6 +128,10 @@ public class BusinessServiceImpl implements BusinessService {
         if (!business.getCollaborators().contains(invitee)) {
             business.getCollaborators().add(invitee);
             businessRepository.save(business);
+            
+            // Log the collaboration acceptance in daily summary
+            dailySummaryService.logDailyAction(business.getId(), 
+                    invitee.getEmail() + " joined as a collaborator");
         }
         
         // Remove the request
@@ -147,6 +161,11 @@ public class BusinessServiceImpl implements BusinessService {
         }
         
         Business updatedBusiness = businessRepository.save(business);
+        
+        // Log the business update in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Business information updated by " + requester.getEmail());
+        
         return mapToDto(updatedBusiness);
     }
 
@@ -178,6 +197,10 @@ public class BusinessServiceImpl implements BusinessService {
         // Remove the collaborator
         business.getCollaborators().remove(userToRemove);
         businessRepository.save(business);
+        
+        // Log the collaborator removal in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Collaborator " + userToRemove.getEmail() + " was removed by " + requester.getEmail());
     }
     
     // Helper methods

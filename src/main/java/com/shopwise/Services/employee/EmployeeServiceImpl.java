@@ -7,6 +7,7 @@ import com.shopwise.Dto.employee.EmployeeUpdateRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.CollaboratorTokenRepository;
 import com.shopwise.Repository.EmployeeRepository;
+import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.enums.Role;
 import com.shopwise.models.Business;
 import com.shopwise.models.CollaboratorToken;
@@ -31,6 +32,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final BusinessRepository businessRepository;
     private final CollaboratorTokenRepository collaboratorTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final DailySummaryService dailySummaryService;
     
     private static final int TOKEN_EXPIRY_DAYS = 7;
 
@@ -61,6 +63,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         // Save employee
         Employee savedEmployee = employeeRepository.save(employee);
+        
+        // Log the employee addition in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Employee " + savedEmployee.getName() + " (" + savedEmployee.getEmail() + ") was added");
         
         // Return response
         return mapToEmployeeResponse(savedEmployee);
@@ -102,6 +108,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Save updated employee
         Employee updatedEmployee = employeeRepository.save(employee);
         
+        // Log the employee update in daily summary
+        dailySummaryService.logDailyAction(updatedEmployee.getBusiness().getId(), 
+                "Employee " + updatedEmployee.getName() + " (" + updatedEmployee.getEmail() + ") was updated");
+        
         // Return response
         return mapToEmployeeResponse(updatedEmployee);
     }
@@ -123,6 +133,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         // Save updated employee
         employeeRepository.save(employee);
+        
+        // Log the employee disabling in daily summary
+        dailySummaryService.logDailyAction(employee.getBusiness().getId(), 
+                "Employee " + employee.getName() + " (" + employee.getEmail() + ") was disabled");
     }
 
     @Override
@@ -160,6 +174,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         // Save updated employee
         employeeRepository.save(employee);
+        
+        // Log the role assignment in daily summary
+        dailySummaryService.logDailyAction(employee.getBusiness().getId(), 
+                "Employee " + employee.getName() + " (" + employee.getEmail() + ") was assigned the role of " + role.name());
     }
 
     @Override
@@ -194,6 +212,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Save token
         collaboratorTokenRepository.save(token);
         
+        // Log the collaborator invitation in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Collaboration invitation sent to " + request.getName() + " (" + request.getEmail() + ")");
+        
         // In a real application, we would send an email with the invitation link here
     }
 
@@ -222,6 +244,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         // Delete token
         collaboratorTokenRepository.delete(collaboratorToken);
+        
+        // Log the collaborator confirmation in daily summary
+        dailySummaryService.logDailyAction(employee.getBusiness().getId(), 
+                "Collaborator " + employee.getName() + " (" + employee.getEmail() + ") joined the business");
         
         // In a real application, we would send an email with the password reset link here
     }

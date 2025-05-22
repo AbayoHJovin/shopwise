@@ -5,6 +5,7 @@ import com.shopwise.Dto.product.ProductResponse;
 import com.shopwise.Dto.product.ProductUpdateRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.ProductRepository;
+import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Business;
 import com.shopwise.models.Product;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ public class ProductServiceImpl implements ProductService {
 
     private final ProductRepository productRepository;
     private final BusinessRepository businessRepository;
+    private final DailySummaryService dailySummaryService;
 
     @Override
     @Transactional
@@ -41,6 +43,11 @@ public class ProductServiceImpl implements ProductService {
         
         // Save product
         Product savedProduct = productRepository.save(product);
+        
+        // Log the product addition in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Product '" + savedProduct.getName() + "' was added with " + 
+                savedProduct.getPackets() + " packets of " + savedProduct.getItemsPerPacket() + " items each");
         
         // Return response
         return mapToProductResponse(savedProduct);
@@ -81,6 +88,42 @@ public class ProductServiceImpl implements ProductService {
         // Save updated product
         Product updatedProduct = productRepository.save(product);
         
+        // Log the product update in daily summary
+        StringBuilder updateDetails = new StringBuilder();
+        updateDetails.append("Product '").append(updatedProduct.getName()).append("' was updated: ");
+        
+        if (request.getName() != null) {
+            updateDetails.append("name updated, ");
+        }
+        
+        if (request.getDescription() != null) {
+            updateDetails.append("description updated, ");
+        }
+        
+        if (request.getPackets() != null) {
+            updateDetails.append("packets updated to ").append(request.getPackets()).append(", ");
+        }
+        
+        if (request.getItemsPerPacket() != null) {
+            updateDetails.append("items per packet updated to ").append(request.getItemsPerPacket()).append(", ");
+        }
+        
+        if (request.getPricePerItem() != null) {
+            updateDetails.append("price per item updated to ").append(String.format("%.2f", request.getPricePerItem())).append(", ");
+        }
+        
+        if (request.getFulfillmentCost() != null) {
+            updateDetails.append("fulfillment cost updated to ").append(String.format("%.2f", request.getFulfillmentCost())).append(", ");
+        }
+        
+        // Remove trailing comma and space if present
+        String logMessage = updateDetails.toString();
+        if (logMessage.endsWith(", ")) {
+            logMessage = logMessage.substring(0, logMessage.length() - 2);
+        }
+        
+        dailySummaryService.logDailyAction(updatedProduct.getBusiness().getId(), logMessage);
+        
         // Return response
         return mapToProductResponse(updatedProduct);
     }
@@ -88,13 +131,19 @@ public class ProductServiceImpl implements ProductService {
     @Override
     @Transactional
     public void deleteProduct(UUID productId) {
-        // Check if product exists
-        if (!productRepository.existsById(productId)) {
-            throw ProductException.notFound("Product not found with ID: " + productId);
-        }
+        // Find the product to get its details before deletion
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> ProductException.notFound("Product not found with ID: " + productId));
+        
+        String productName = product.getName();
+        UUID businessId = product.getBusiness().getId();
         
         // Delete product
         productRepository.deleteById(productId);
+        
+        // Log the product deletion in daily summary
+        dailySummaryService.logDailyAction(businessId, 
+                "Product '" + productName + "' was deleted");
     }
 
     @Override
@@ -146,7 +195,11 @@ public class ProductServiceImpl implements ProductService {
         // Save updated product
         Product updatedProduct = productRepository.save(product);
         
-        // In a real application, we would log the stock adjustment with the reason
+        // Log the stock adjustment in daily summary
+        String changeDescription = quantityChange > 0 ? "increased by " + quantityChange : "decreased by " + Math.abs(quantityChange);
+        dailySummaryService.logDailyAction(updatedProduct.getBusiness().getId(), 
+                "Stock for product '" + updatedProduct.getName() + "' was " + changeDescription + 
+                " packets" + (reason != null && !reason.isEmpty() ? ". Reason: " + reason : ""));
         
         // Return response
         return mapToProductResponse(updatedProduct);
@@ -168,12 +221,22 @@ public class ProductServiceImpl implements ProductService {
             throw ProductException.badRequest("Items per packet must be greater than zero");
         }
         
+        // Get original values for logging
+        int originalPackets = product.getPackets();
+        int originalItemsPerPacket = product.getItemsPerPacket();
+        
         // Update stock values
         product.setPackets(newPackets);
         product.setItemsPerPacket(newItemsPerPacket);
         
         // Save updated product
         Product updatedProduct = productRepository.save(product);
+        
+        // Log the stock adjustment in daily summary
+        dailySummaryService.logDailyAction(updatedProduct.getBusiness().getId(), 
+                "Stock for product '" + updatedProduct.getName() + "' was adjusted from " + 
+                originalPackets + " packets of " + originalItemsPerPacket + " items to " + 
+                newPackets + " packets of " + newItemsPerPacket + " items");
         
         // Return response
         return mapToProductResponse(updatedProduct);
