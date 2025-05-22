@@ -1,6 +1,7 @@
 package com.shopwise.Services.business;
 
 import com.shopwise.Dto.BusinessDto;
+import com.shopwise.Dto.LocationDto;
 import com.shopwise.Dto.Request.CreateBusinessRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.CollaborationRequestRepository;
@@ -8,6 +9,7 @@ import com.shopwise.Repository.UserRepository;
 import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Business;
 import com.shopwise.models.CollaborationRequest;
+import com.shopwise.models.Location;
 import com.shopwise.models.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -36,7 +38,20 @@ public class BusinessServiceImpl implements BusinessService {
     public BusinessDto createBusiness(CreateBusinessRequest request, User owner) {
         Business business = new Business();
         business.setName(request.getName());
-        business.setLocation(request.getLocation());
+        
+        // Convert LocationDto to Location entity
+        Location location = new Location();
+        if (request.getLocation() != null) {
+            location.setProvince(request.getLocation().getProvince());
+            location.setDistrict(request.getLocation().getDistrict());
+            location.setSector(request.getLocation().getSector());
+            location.setCell(request.getLocation().getCell());
+            location.setVillage(request.getLocation().getVillage());
+            location.setLatitude(request.getLocation().getLatitude());
+            location.setLongitude(request.getLocation().getLongitude());
+        }
+        business.setLocation(location);
+        
         business.setAbout(request.getAbout());
         business.setWebsiteLink(request.getWebsiteLink());
         
@@ -148,8 +163,38 @@ public class BusinessServiceImpl implements BusinessService {
             business.setName(updates.getName());
         }
         
-        if (updates.getLocation() != null && !updates.getLocation().isBlank()) {
-            business.setLocation(updates.getLocation());
+        if (updates.getLocation() != null) {
+            // Convert LocationDto to Location entity
+            Location location = business.getLocation();
+            if (location == null) {
+                location = new Location();
+            }
+            
+            // Update location fields if provided in the DTO
+            LocationDto locationDto = updates.getLocation();
+            if (locationDto.getProvince() != null) {
+                location.setProvince(locationDto.getProvince());
+            }
+            if (locationDto.getDistrict() != null) {
+                location.setDistrict(locationDto.getDistrict());
+            }
+            if (locationDto.getSector() != null) {
+                location.setSector(locationDto.getSector());
+            }
+            if (locationDto.getCell() != null) {
+                location.setCell(locationDto.getCell());
+            }
+            if (locationDto.getVillage() != null) {
+                location.setVillage(locationDto.getVillage());
+            }
+            if (locationDto.getLatitude() != null) {
+                location.setLatitude(locationDto.getLatitude());
+            }
+            if (locationDto.getLongitude() != null) {
+                location.setLongitude(locationDto.getLongitude());
+            }
+            
+            business.setLocation(location);
         }
         
         if (updates.getAbout() != null) {
@@ -218,10 +263,24 @@ public class BusinessServiceImpl implements BusinessService {
     }
     
     private BusinessDto mapToDto(Business business) {
+        // Convert Location entity to LocationDto
+        LocationDto locationDto = null;
+        if (business.getLocation() != null) {
+            locationDto = LocationDto.builder()
+                    .province(business.getLocation().getProvince())
+                    .district(business.getLocation().getDistrict())
+                    .sector(business.getLocation().getSector())
+                    .cell(business.getLocation().getCell())
+                    .village(business.getLocation().getVillage())
+                    .latitude(business.getLocation().getLatitude())
+                    .longitude(business.getLocation().getLongitude())
+                    .build();
+        }
+        
         return BusinessDto.builder()
                 .id(business.getId())
                 .name(business.getName())
-                .location(business.getLocation())
+                .location(locationDto)
                 .about(business.getAbout())
                 .websiteLink(business.getWebsiteLink())
                 .collaboratorIds(business.getCollaborators().stream()

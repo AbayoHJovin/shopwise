@@ -21,7 +21,11 @@ public class Business {
     private UUID id;
 
     private String name;
-    private String location;
+    
+    // Replace simple location string with embedded Location entity
+    @Embedded
+    private Location location;
+    
     private String about;
     private String websiteLink;
 

@@ -15,7 +15,7 @@ import java.util.UUID;
 public class BusinessDto {
     private UUID id;
     private String name;
-    private String location;
+    private LocationDto location;
     private String about;
     private String websiteLink;
     private List<UUID> collaboratorIds;

@@ -1,6 +1,9 @@
 package com.shopwise.Dto.Request;
 
+import com.shopwise.Dto.LocationDto;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -14,9 +17,9 @@ public class CreateBusinessRequest {
     @Size(min = 2, max = 100, message = "Business name must be between 2 and 100 characters")
     private String name;
     
-    @NotBlank(message = "Location is required")
-    @Size(max = 200, message = "Location must not exceed 200 characters")
-    private String location;
+    @NotNull(message = "Location is required")
+    @Valid
+    private LocationDto location;
     
     @Size(max = 500, message = "About section must not exceed 500 characters")
     private String about;

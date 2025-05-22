@@ -4,10 +4,12 @@ import com.shopwise.Dto.productimage.ProductImageRequest;
 import com.shopwise.Dto.productimage.ProductImageResponse;
 import com.shopwise.Repository.ProductImageRepository;
 import com.shopwise.Repository.ProductRepository;
+import com.shopwise.Services.cloudinary.CloudinaryService;
 import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Product;
 import com.shopwise.models.ProductImage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,11 +19,13 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class ProductImageServiceImpl implements ProductImageService {
 
     private final ProductRepository productRepository;
     private final ProductImageRepository productImageRepository;
     private final DailySummaryService dailySummaryService;
+    private final CloudinaryService cloudinaryService;
 
     @Override
     @Transactional
@@ -74,9 +78,21 @@ public class ProductImageServiceImpl implements ProductImageService {
                 .orElseThrow(() -> ProductImageException.notFound("Product image not found with ID: " + imageId));
         
         Product product = image.getProduct();
+        String publicId = image.getPublicId();
         
-        // Delete the image
+        // Delete the image from database
         productImageRepository.delete(image);
+        
+        // Delete the image from Cloudinary
+        try {
+            boolean deleted = cloudinaryService.deleteImage(publicId);
+            if (!deleted) {
+                log.warn("Failed to delete image from Cloudinary: {}", publicId);
+            }
+        } catch (Exception e) {
+            // Log the error but don't fail the transaction
+            log.error("Error deleting image from Cloudinary: {}", publicId, e);
+        }
         
         // Log the action in the daily summary
         dailySummaryService.logDailyAction(product.getBusiness().getId(), 
@@ -90,11 +106,25 @@ public class ProductImageServiceImpl implements ProductImageService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> ProductImageException.notFound("Product not found with ID: " + productId));
         
-        // Get the number of images for logging
-        int imageCount = product.getImages().size();
+        // Get all images for the product
+        List<ProductImage> images = productImageRepository.findByProductId(productId);
+        int imageCount = images.size();
         
         if (imageCount > 0) {
-            // Delete all images for the product
+            // Delete images from Cloudinary
+            for (ProductImage image : images) {
+                try {
+                    boolean deleted = cloudinaryService.deleteImage(image.getPublicId());
+                    if (!deleted) {
+                        log.warn("Failed to delete image from Cloudinary: {}", image.getPublicId());
+                    }
+                } catch (Exception e) {
+                    // Log the error but don't fail the transaction
+                    log.error("Error deleting image from Cloudinary: {}", image.getPublicId(), e);
+                }
+            }
+            
+            // Delete all images from database
             productImageRepository.deleteByProductId(productId);
             
             // Log the action in the daily summary
