@@ -80,6 +80,7 @@ public class AppConfig {
                         .requestMatchers("/api/sales/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/daily-summaries/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/availability/**").hasAnyRole("USER", "ADMIN")
+                        .requestMatchers("/api/product-images/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/collaborators/**").permitAll() // Allow access to confirm collaboration
                         .anyRequest().authenticated()
                 )

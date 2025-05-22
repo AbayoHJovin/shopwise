@@ -3,15 +3,20 @@
 import com.shopwise.Dto.product.ProductRequest;
 import com.shopwise.Dto.product.ProductResponse;
 import com.shopwise.Dto.product.ProductUpdateRequest;
+import com.shopwise.Dto.productimage.ProductImageRequest;
+import com.shopwise.Dto.productimage.ProductImageResponse;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.ProductRepository;
 import com.shopwise.Services.dailysummary.DailySummaryService;
+import com.shopwise.Services.productimage.ProductImageService;
 import com.shopwise.models.Business;
 import com.shopwise.models.Product;
+import com.shopwise.models.ProductImage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -23,6 +28,7 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final BusinessRepository businessRepository;
     private final DailySummaryService dailySummaryService;
+    private final ProductImageService productImageService;
 
     @Override
     @Transactional
@@ -44,13 +50,26 @@ public class ProductServiceImpl implements ProductService {
         // Save product
         Product savedProduct = productRepository.save(product);
         
+        // Add product images if provided
+        List<ProductImageResponse> imageResponses = new ArrayList<>();
+        if (request.getImages() != null && !request.getImages().isEmpty()) {
+            for (ProductImageRequest imageRequest : request.getImages()) {
+                if (imageResponses.size() < 3) { // Enforce max 3 images
+                    ProductImageResponse imageResponse = productImageService.addProductImage(savedProduct.getId(), imageRequest);
+                    imageResponses.add(imageResponse);
+                }
+            }
+        }
+        
         // Log the product addition in daily summary
         dailySummaryService.logDailyAction(businessId, 
                 "Product '" + savedProduct.getName() + "' was added with " + 
                 savedProduct.getPackets() + " packets of " + savedProduct.getItemsPerPacket() + " items each");
         
         // Return response
-        return mapToProductResponse(savedProduct);
+        ProductResponse response = mapToProductResponse(savedProduct);
+        response.setImages(imageResponses);
+        return response;
     }
 
     @Override
@@ -87,6 +106,21 @@ public class ProductServiceImpl implements ProductService {
         
         // Save updated product
         Product updatedProduct = productRepository.save(product);
+        
+        // Update product images if provided
+        if (request.getImages() != null) {
+            // Delete existing images first
+            productImageService.deleteAllProductImages(productId);
+            
+            // Add new images
+            List<ProductImageResponse> imageResponses = new ArrayList<>();
+            for (ProductImageRequest imageRequest : request.getImages()) {
+                if (imageResponses.size() < 3) { // Enforce max 3 images
+                    ProductImageResponse imageResponse = productImageService.addProductImage(updatedProduct.getId(), imageRequest);
+                    imageResponses.add(imageResponse);
+                }
+            }
+        }
         
         // Log the product update in daily summary
         StringBuilder updateDetails = new StringBuilder();
@@ -137,6 +171,9 @@ public class ProductServiceImpl implements ProductService {
         
         String productName = product.getName();
         UUID businessId = product.getBusiness().getId();
+        
+        // Delete all product images first
+        productImageService.deleteAllProductImages(productId);
         
         // Delete product
         productRepository.deleteById(productId);
@@ -287,6 +324,9 @@ public class ProductServiceImpl implements ProductService {
         int totalItems = product.getPackets() * product.getItemsPerPacket();
         double totalValue = totalItems * product.getPricePerItem();
         
+        // Get product images
+        List<ProductImageResponse> imageResponses = productImageService.getProductImages(product.getId());
+        
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())
@@ -298,6 +338,7 @@ public class ProductServiceImpl implements ProductService {
                 .businessId(product.getBusiness().getId())
                 .totalItems(totalItems)
                 .totalValue(totalValue)
+                .images(imageResponses)
                 .build();
     }
 }

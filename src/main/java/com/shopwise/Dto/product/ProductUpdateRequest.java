@@ -1,11 +1,14 @@
 package com.shopwise.Dto.product;
 
+import com.shopwise.Dto.productimage.ProductImageRequest;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @Builder
@@ -30,4 +33,8 @@ public class ProductUpdateRequest {
     
     @Min(value = 0, message = "Fulfillment cost must be at least 0")
     private Double fulfillmentCost;
+    
+    // Optional product images (max 3)
+    @Size(max = 3, message = "A product can have at most 3 images")
+    private List<ProductImageRequest> images;
 }

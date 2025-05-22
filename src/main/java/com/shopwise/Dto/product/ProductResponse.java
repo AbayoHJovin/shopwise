@@ -1,10 +1,12 @@
 package com.shopwise.Dto.product;
 
+import com.shopwise.Dto.productimage.ProductImageResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.UUID;
 
 @Data
@@ -24,4 +26,7 @@ public class ProductResponse {
     // Calculated fields
     private int totalItems;
     private double totalValue;
+    
+    // Product images (max 3)
+    private List<ProductImageResponse> images;
 }
