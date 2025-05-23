@@ -6,7 +6,9 @@ import com.shopwise.models.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -17,6 +19,9 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
 
     public User registerUser(UserRegisterRequest request) {
+        if(!Objects.equals(request.getPassword(), request.getConfirmPassword())) {
+            throw new IllegalArgumentException("Passwords do not match.");
+        }
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException("Email is already in use.");
         }

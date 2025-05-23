@@ -2,6 +2,7 @@ package com.shopwise.controllers;
 
 import com.shopwise.Dto.Request.UserLoginRequest;
 import com.shopwise.Dto.Request.UserRegisterRequest;
+import com.shopwise.Dto.UserDto;
 import com.shopwise.Services.UserService;
 import com.shopwise.Services.auth.JwtService;
 import com.shopwise.models.User;
@@ -16,6 +17,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -100,52 +102,63 @@ public class UserAuthController {
         return ResponseEntity.ok(responseBody);
     }
     
+    /**
+     * Endpoint to check if a user is authenticated and return their details
+     * This endpoint is used by the frontend to verify authentication status with credentials included
+     * 
+     * @param request The HTTP request containing cookies
+     * @return User details if authenticated, or unauthorized status if not
+     */
+
     @GetMapping("/me")
+    @Transactional
     public ResponseEntity<?> getCurrentUser(HttpServletRequest request) {
-        // Get the token from the cookie
-        Cookie[] cookies = request.getCookies();
-        String token = null;
-        
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("accessToken".equals(cookie.getName())) {
-                    token = cookie.getValue();
-                    break;
+        try {
+            // Get the token from the cookie
+            Cookie[] cookies = request.getCookies();
+            String token = null;
+            
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("accessToken".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                        break;
+                    }
                 }
             }
-        }
-        
-        if (token == null) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Not authenticated");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-        }
-        
-        try {
-            String userId = jwtService.extractUserId(token);
+            
+            if (token == null) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Not authenticated");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            }
+            
+            // Validate the token and get user details
+            String email = jwtService.extractClaims(token).getSubject(); // Email is stored as the subject
             String userType = jwtService.extractType(token);
             
-            if (!"user".equals(userType)) {
+            if (userType != null && !"user".equals(userType)) {
                 Map<String, String> errorResponse = new HashMap<>();
                 errorResponse.put("error", "Invalid authentication type");
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
             
-            String email = jwtService.extractClaims(token).getSubject();
             User user = userService.getUserByEmail(email);
             
-            Map<String, Object> userDetails = new HashMap<>();
-            userDetails.put("id", user.getId().toString());
-            userDetails.put("name", user.getName());
-            userDetails.put("email", user.getEmail());
-            userDetails.put("phone", user.getPhone());
-            userDetails.put("role", user.getRole());
+            if (user == null) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "User not found");
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            }
             
-            return ResponseEntity.ok(userDetails);
+            // Convert to DTO to avoid exposing sensitive information
+            UserDto userDto = UserDto.fromEntity(user);
+            
+            return ResponseEntity.ok(userDto);
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Invalid or expired token");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            errorResponse.put("error", "Error retrieving user details: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 }

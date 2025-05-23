@@ -77,12 +77,14 @@ public class BusinessServiceImpl implements BusinessService {
     }
 
     @Override
+    @Transactional
     public BusinessDto getBusinessById(UUID businessId, User requester) {
         Business business = findBusinessAndCheckAccess(businessId, requester);
         return mapToDto(business);
     }
 
     @Override
+    @Transactional
     public List<BusinessDto> getBusinessesForUser(User user) {
         List<Business> businesses = businessRepository.findBusinessesByCollaborator(user);
         return businesses.stream()

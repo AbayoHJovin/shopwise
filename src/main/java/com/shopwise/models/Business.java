@@ -25,7 +25,9 @@ public class Business {
     // Replace simple location string with embedded Location entity
     @Embedded
     private Location location;
-    
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name="description", columnDefinition = "TEXT")
     private String about;
     private String websiteLink;
 

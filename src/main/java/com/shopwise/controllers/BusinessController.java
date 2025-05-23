@@ -24,7 +24,7 @@ public class BusinessController {
 
     private final BusinessService businessService;
 
-    @PostMapping
+    @PostMapping("/create")
     public ResponseEntity<?> createBusiness(@Valid @RequestBody CreateBusinessRequest request, 
                                             Authentication authentication) {
         try {
@@ -58,7 +58,7 @@ public class BusinessController {
         }
     }
 
-    @GetMapping
+    @GetMapping("/getMine")
     public ResponseEntity<?> getUserBusinesses(Authentication authentication) {
         try {
             User currentUser = (User) authentication.getPrincipal();

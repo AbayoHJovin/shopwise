@@ -20,9 +20,7 @@ public class CreateBusinessRequest {
     @NotNull(message = "Location is required")
     @Valid
     private LocationDto location;
-    
     @Size(max = 500, message = "About section must not exceed 500 characters")
     private String about;
-    
     private String websiteLink;
 }
