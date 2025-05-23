@@ -19,4 +19,5 @@ public interface BusinessRepository extends JpaRepository<Business, UUID> {
     boolean isUserCollaborator(@Param("businessId") UUID businessId, @Param("user") User user);
     
     Optional<Business> findById(UUID id);
+
 }
