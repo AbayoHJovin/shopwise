@@ -23,4 +23,17 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
             @Param("businessId") UUID businessId,
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate);
+    
+    /**
+     * Find expenses for a specific business within a date range
+     * 
+     * @param business The business to find expenses for
+     * @param startDate The start date and time
+     * @param endDate The end date and time
+     * @return List of expenses within the date range
+     */
+    List<Expense> findByBusinessAndCreatedAtBetween(
+            Business business,
+            LocalDateTime startDate,
+            LocalDateTime endDate);
 }

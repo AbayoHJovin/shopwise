@@ -1,13 +1,17 @@
 package com.shopwise.controllers;
 
+import com.shopwise.Dto.BusinessDto;
 import com.shopwise.Services.BusinessSelectionService;
 import com.shopwise.Services.auth.JwtService;
+import com.shopwise.Services.business.BusinessService;
+import com.shopwise.models.User;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +26,7 @@ public class BusinessSelectionController {
 
     private final BusinessSelectionService businessSelectionService;
     private final JwtService jwtService;
+    private final BusinessService businessService;
 
     /**
      * Endpoint to select a business as the active business for the current user
@@ -87,34 +92,76 @@ public class BusinessSelectionController {
     }
     
     /**
-     * Get the currently selected business ID
+     * Get the currently selected business details
      *
      * @param request HTTP request to extract the business cookie
-     * @return The currently selected business ID or null
+     * @param authentication The authentication object containing user details
+     * @return The currently selected business details or appropriate error response
      */
     @GetMapping("/selected")
-    public ResponseEntity<?> getSelectedBusiness(HttpServletRequest request) {
+    public ResponseEntity<?> getSelectedBusiness(HttpServletRequest request, Authentication authentication) {
         try {
+            // Extract user from authentication
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User not authenticated"));
+            }
+            
+            User currentUser = (User) authentication.getPrincipal();
+            
+            // Get the selected business ID from cookies
             Cookie[] cookies = request.getCookies();
-            String selectedBusinessId = null;
+            String selectedBusinessIdStr = null;
             
             if (cookies != null) {
                 for (Cookie cookie : cookies) {
                     if ("selectedBusiness".equals(cookie.getName())) {
-                        selectedBusinessId = cookie.getValue();
+                        selectedBusinessIdStr = cookie.getValue();
                         break;
                     }
                 }
             }
             
-            Map<String, String> response = new HashMap<>();
-            if (selectedBusinessId != null) {
-                response.put("selectedBusinessId", selectedBusinessId);
-            } else {
-                response.put("selectedBusinessId", null);
+            // If no business is selected, return appropriate response
+            if (selectedBusinessIdStr == null || selectedBusinessIdStr.isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                    "selected", false,
+                    "message", "No business currently selected"
+                ));
             }
             
-            return ResponseEntity.ok(response);
+            try {
+                // Convert string to UUID
+                UUID selectedBusinessId = UUID.fromString(selectedBusinessIdStr);
+                
+                // Get business details
+                BusinessDto business = businessSelectionService.getBusinessesForUser(currentUser.getEmail()).stream()
+                        .filter(b -> b.getId().equals(selectedBusinessId))
+                        .findFirst()
+                        .orElse(null);
+                
+                if (business == null) {
+                    // Business not found or user doesn't have access
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body(Map.of(
+                                "error", "Selected business not found or you don't have access to it",
+                                "selectedBusinessId", selectedBusinessIdStr
+                            ));
+                }
+                
+                // Return business details
+                Map<String, Object> response = new HashMap<>();
+                response.put("selected", true);
+                response.put("selectedBusinessId", selectedBusinessId.toString());
+                response.put("business", business);
+                
+                return ResponseEntity.ok(response);
+                
+            } catch (IllegalArgumentException e) {
+                // Invalid UUID format
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "Invalid business ID format: " + selectedBusinessIdStr));
+            }
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "An unexpected error occurred: " + e.getMessage());

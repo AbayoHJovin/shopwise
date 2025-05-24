@@ -28,4 +28,17 @@ public interface SaleRecordRepository extends JpaRepository<SaleRecord, UUID> {
             @Param("businessId") UUID businessId,
             @Param("startDateTime") LocalDateTime startDateTime,
             @Param("endDateTime") LocalDateTime endDateTime);
+    
+    /**
+     * Find sale records for a specific business within a date range
+     * 
+     * @param business The business to find sales for
+     * @param startDateTime The start date and time
+     * @param endDateTime The end date and time
+     * @return List of sale records within the date range
+     */
+    List<SaleRecord> findByBusinessAndSaleTimeBetween(
+            Business business,
+            LocalDateTime startDateTime,
+            LocalDateTime endDateTime);
 }
