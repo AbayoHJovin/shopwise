@@ -2,6 +2,7 @@ package com.shopwise.Repository;
 
 import com.shopwise.models.Business;
 import com.shopwise.models.Expense;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,4 +37,13 @@ public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
             Business business,
             LocalDateTime startDate,
             LocalDateTime endDate);
+    
+    /**
+     * Find latest expenses for a specific business
+     * 
+     * @param business The business to find expenses for
+     * @param pageable Pagination information
+     * @return List of latest expenses
+     */
+    List<Expense> findByBusinessOrderByCreatedAtDesc(Business business, Pageable pageable);
 }

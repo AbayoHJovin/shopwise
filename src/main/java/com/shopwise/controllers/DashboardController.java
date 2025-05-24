@@ -1,6 +1,8 @@
 package com.shopwise.controllers;
 
 import com.shopwise.Dto.dashboard.BusinessDashboardDto;
+import com.shopwise.Dto.expense.ExpenseResponse;
+import com.shopwise.Dto.product.ProductResponse;
 import com.shopwise.Services.dashboard.DashboardService;
 import com.shopwise.Services.auth.JwtService;
 import com.shopwise.models.User;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -92,4 +95,7 @@ public class DashboardController {
                     .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
         }
     }
+    
+    // The endpoints for top-products and latest-expenses have been removed
+    // as they are now included in the main dashboard response
 }

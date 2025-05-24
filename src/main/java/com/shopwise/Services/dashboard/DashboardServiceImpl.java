@@ -2,14 +2,19 @@ package com.shopwise.Services.dashboard;
 
 import com.shopwise.Dto.dashboard.BusinessDashboardDto;
 import com.shopwise.Dto.dashboard.MonthlySalesDto;
+import com.shopwise.Dto.expense.ExpenseResponse;
+import com.shopwise.Dto.product.ProductResponse;
+import com.shopwise.Dto.productimage.ProductImageResponse;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.EmployeeRepository;
 import com.shopwise.Repository.ExpenseRepository;
 import com.shopwise.Repository.ProductRepository;
+import com.shopwise.Repository.ProductImageRepository;
 import com.shopwise.Repository.SaleRecordRepository;
 import com.shopwise.models.Business;
 import com.shopwise.models.Expense;
 import com.shopwise.models.Product;
+import com.shopwise.models.ProductImage;
 import com.shopwise.models.SaleRecord;
 import com.shopwise.models.User;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +31,9 @@ import java.time.format.TextStyle;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 /**
  * Implementation of the DashboardService
  */
@@ -37,6 +45,7 @@ public class DashboardServiceImpl implements DashboardService {
     private final BusinessRepository businessRepository;
     private final SaleRecordRepository saleRecordRepository;
     private final ProductRepository productRepository;
+    private final ProductImageRepository productImageRepository;
     private final EmployeeRepository employeeRepository;
     private final ExpenseRepository expenseRepository;
 
@@ -102,6 +111,74 @@ public class DashboardServiceImpl implements DashboardService {
             // Mark the highest month in the list
             monthlySales.forEach(m -> m.setHighest(m.getMonth().equals(month.getMonth())));
         });
+        
+        // Get top selling products
+        Pageable pageable = PageRequest.of(0, 5);
+        List<Object[]> topProductsData = saleRecordRepository.findTopSellingProductsByBusinessId(
+                businessId, pageable);
+        
+        // Convert to ProductResponse DTOs
+        List<ProductResponse> topProducts = new ArrayList<>();
+        
+        for (Object[] data : topProductsData) {
+            Product product = (Product) data[0];
+            Long totalSold = ((Number) data[1]).longValue();
+            
+            // Get product images
+            List<ProductImage> productImages = productImageRepository.findByProductId(product.getId());
+            List<ProductImageResponse> imageResponses = productImages.stream()
+                    .map(image -> ProductImageResponse.builder()
+                            .id(image.getId())
+                            .imageUrl(image.getImageUrl())
+                            .publicId(image.getPublicId())
+                            .productId(product.getId())
+                            .build())
+                    .collect(Collectors.toList());
+            
+            // Calculate total items and value
+            int totalItems = product.getPackets() * product.getItemsPerPacket();
+            double totalValue = product.getPricePerItem() * totalItems;
+            
+            // Build product response
+            ProductResponse productResponse = ProductResponse.builder()
+                    .id(product.getId())
+                    .name(product.getName())
+                    .description(product.getDescription())
+                    .packets(product.getPackets())
+                    .itemsPerPacket(product.getItemsPerPacket())
+                    .pricePerItem(product.getPricePerItem())
+                    .fulfillmentCost(product.getFulfillmentCost())
+                    .businessId(product.getBusiness().getId())
+                    .totalItems(totalItems)
+                    .totalValue(totalValue)
+                    .images(imageResponses)
+                    .build();
+            
+            topProducts.add(productResponse);
+        }
+        
+        // Get latest expenses
+        List<Expense> latestExpenses = expenseRepository.findByBusinessOrderByCreatedAtDesc(
+                business, pageable);
+        
+        // Convert to ExpenseResponse DTOs
+        List<ExpenseResponse> latestExpenseResponses = latestExpenses.stream()
+                .map(expense -> ExpenseResponse.builder()
+                        .id(expense.getId())
+                        .title(expense.getTitle())
+                        .amount(expense.getAmount())
+                        .category(expense.getCategory())
+                        .note(expense.getNote())
+                        .createdAt(expense.getCreatedAt())
+                        .businessId(expense.getBusiness().getId())
+                        .businessName(expense.getBusiness().getName())
+                        .build())
+                .collect(Collectors.toList());
+        
+        // Add top products and latest expenses to the dashboard
+        dashboardBuilder
+                .topSellingProducts(topProducts)
+                .latestExpenses(latestExpenseResponses);
         
         return dashboardBuilder.build();
     }
@@ -185,28 +262,12 @@ public class DashboardServiceImpl implements DashboardService {
         
         // Get all expenses for the previous month
         LocalDateTime previousMonthStart = LocalDateTime.of(previousMonth.getYear(), previousMonth.getMonthValue(), 1, 0, 0);
-        LocalDateTime previousMonthEnd = previousMonthStart.plusMonths(1).minusNanos(1);
-        
-        List<Expense> previousMonthExpenses = expenseRepository.findByBusinessAndCreatedAtBetween(
-                business, previousMonthStart, previousMonthEnd);
-        
-        // Calculate total expenses for previous month
-        BigDecimal previousMonthTotalExpenses = calculateTotalExpenses(previousMonthExpenses);
-        
-        // Calculate percentage change
-        Double expenseChangePercentage = calculatePercentageChange(previousMonthTotalExpenses, totalExpenses);
-        
-        // Set values in the dashboard builder
-        dashboardBuilder
-                .totalExpenses(totalExpenses)
-                .previousMonthExpenses(previousMonthTotalExpenses)
-                .expenseChangePercentage(expenseChangePercentage);
     }
     
     /**
      * Calculate stock investment for the dashboard
      */
-    private void calculateStockInvestment(Business business, BusinessDashboardDto.BusinessDashboardDtoBuilder dashboardBuilder) {
+    private BigDecimal calculateStockInvestment(Business business) {
         // Get all products for the business
         List<Product> products = business.getProducts();
         
@@ -309,5 +370,115 @@ public class DashboardServiceImpl implements DashboardService {
                 .divide(oldValue, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
                 .doubleValue();
+    }
+    
+    /**
+     * Get top 5 best-selling products for a business
+     *
+     * @param businessId The ID of the business
+     * @param user The user requesting the data
+     * @return List of top 5 best-selling products
+     * @throws SecurityException if the user doesn't have access to the business
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> getTopSellingProducts(UUID businessId, User user) {
+        // Verify business exists and user has access
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new IllegalArgumentException("Business not found"));
+        
+        // Check if user is a collaborator
+        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user);
+        if (!isCollaborator) {
+            throw new SecurityException("User does not have access to this business");
+        }
+        
+        // Get top 5 selling products
+        Pageable pageable = PageRequest.of(0, 5);
+        List<Object[]> topProductsData = saleRecordRepository.findTopSellingProductsByBusinessId(
+                businessId, pageable);
+        
+        // Convert to ProductResponse DTOs
+        List<ProductResponse> topProducts = new ArrayList<>();
+        
+        for (Object[] data : topProductsData) {
+            Product product = (Product) data[0];
+            Long totalSold = ((Number) data[1]).longValue();
+            
+            // Get product images
+            List<ProductImage> productImages = productImageRepository.findByProductId(product.getId());
+            List<ProductImageResponse> imageResponses = productImages.stream()
+                    .map(image -> ProductImageResponse.builder()
+                            .id(image.getId())
+                            .imageUrl(image.getImageUrl())
+                            .publicId(image.getPublicId())
+                            .productId(product.getId())
+                            .build())
+                    .collect(Collectors.toList());
+            
+            // Calculate total items and value
+            int totalItems = product.getPackets() * product.getItemsPerPacket();
+            double totalValue = product.getPricePerItem() * totalItems;
+            
+            // Build product response
+            ProductResponse productResponse = ProductResponse.builder()
+                    .id(product.getId())
+                    .name(product.getName())
+                    .description(product.getDescription())
+                    .packets(product.getPackets())
+                    .itemsPerPacket(product.getItemsPerPacket())
+                    .pricePerItem(product.getPricePerItem())
+                    .fulfillmentCost(product.getFulfillmentCost())
+                    .businessId(product.getBusiness().getId())
+                    .totalItems(totalItems)
+                    .totalValue(totalValue)
+                    .images(imageResponses)
+                    .build();
+            
+            topProducts.add(productResponse);
+        }
+        
+        return topProducts;
+    }
+    
+    /**
+     * Get latest 5 expenses for a business
+     *
+     * @param businessId The ID of the business
+     * @param user The user requesting the data
+     * @return List of latest 5 expenses
+     * @throws SecurityException if the user doesn't have access to the business
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ExpenseResponse> getLatestExpenses(UUID businessId, User user) {
+        // Verify business exists and user has access
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> new IllegalArgumentException("Business not found"));
+        
+        // Check if user is a collaborator
+        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user);
+        if (!isCollaborator) {
+            throw new SecurityException("User does not have access to this business");
+        }
+        
+        // Get latest 5 expenses
+        Pageable pageable = PageRequest.of(0, 5);
+        List<Expense> latestExpenses = expenseRepository.findByBusinessOrderByCreatedAtDesc(
+                business, pageable);
+        
+        // Convert to ExpenseResponse DTOs
+        return latestExpenses.stream()
+                .map(expense -> ExpenseResponse.builder()
+                        .id(expense.getId())
+                        .title(expense.getTitle())
+                        .amount(expense.getAmount())
+                        .category(expense.getCategory())
+                        .note(expense.getNote())
+                        .createdAt(expense.getCreatedAt())
+                        .businessId(expense.getBusiness().getId())
+                        .businessName(expense.getBusiness().getName())
+                        .build())
+                .collect(Collectors.toList());
     }
 }

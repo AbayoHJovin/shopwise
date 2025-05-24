@@ -3,6 +3,7 @@ package com.shopwise.Repository;
 import com.shopwise.models.Business;
 import com.shopwise.models.Product;
 import com.shopwise.models.SaleRecord;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -41,4 +42,19 @@ public interface SaleRecordRepository extends JpaRepository<SaleRecord, UUID> {
             Business business,
             LocalDateTime startDateTime,
             LocalDateTime endDateTime);
+    
+    /**
+     * Find top selling products for a specific business
+     * 
+     * @param businessId The business ID to find top products for
+     * @param limit The maximum number of products to return
+     * @return List of products with their total quantity sold, ordered by quantity in descending order
+     */
+    @Query("SELECT s.product, SUM(s.quantitySold) as totalSold FROM SaleRecord s " +
+           "WHERE s.business.id = :businessId " +
+           "GROUP BY s.product " +
+           "ORDER BY totalSold DESC")
+    List<Object[]> findTopSellingProductsByBusinessId(
+            @Param("businessId") UUID businessId,
+            Pageable pageable);
 }

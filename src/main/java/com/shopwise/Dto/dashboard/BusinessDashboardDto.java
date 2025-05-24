@@ -1,5 +1,7 @@
 package com.shopwise.Dto.dashboard;
 
+import com.shopwise.Dto.expense.ExpenseResponse;
+import com.shopwise.Dto.product.ProductResponse;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -43,4 +45,10 @@ public class BusinessDashboardDto {
     // Monthly sales data for chart
     private List<MonthlySalesDto> monthlySales;
     private String highestSalesMonth;
+    
+    // Top selling products
+    private List<ProductResponse> topSellingProducts;
+    
+    // Latest expenses
+    private List<ExpenseResponse> latestExpenses;
 }
