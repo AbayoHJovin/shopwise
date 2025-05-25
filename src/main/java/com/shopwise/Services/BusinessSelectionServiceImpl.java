@@ -54,7 +54,7 @@ public class BusinessSelectionServiceImpl implements BusinessSelectionService {
                 .orElseThrow(() -> new IllegalArgumentException("Business not found"));
 
         // Use the repository method to efficiently check if user is a collaborator
-        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user);
+        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user.getId());
         
         // If user is not a collaborator, they don't have access
         if (!isCollaborator) {

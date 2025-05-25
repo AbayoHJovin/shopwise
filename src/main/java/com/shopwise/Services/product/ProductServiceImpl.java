@@ -13,11 +13,16 @@ import com.shopwise.models.Business;
 import com.shopwise.models.Product;
 import com.shopwise.models.ProductImage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -184,6 +189,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    @Transactional
     public List<ProductResponse> getAllProductsByBusiness(UUID businessId) {
         // Check if business exists
         if (!businessRepository.existsById(businessId)) {
@@ -198,8 +204,39 @@ public class ProductServiceImpl implements ProductService {
                 .map(this::mapToProductResponse)
                 .collect(Collectors.toList());
     }
+    
+    @Override
+    @Transactional
+    public Map<String, Object> getAllProductsByBusinessPaginated(UUID businessId, int page, int size) {
+        // Check if business exists
+        if (!businessRepository.existsById(businessId)) {
+            throw ProductException.notFound("Business not found with ID: " + businessId);
+        }
+        
+        // Create pageable object
+        Pageable pageable = PageRequest.of(page, size);
+        
+        // Get paginated products for the business
+        Page<Product> productPage = productRepository.findByBusinessId(businessId, pageable);
+        
+        // Map to response DTOs
+        List<ProductResponse> productResponses = productPage.getContent().stream()
+                .map(this::mapToProductResponse)
+                .collect(Collectors.toList());
+        
+        // Create response map with explicit type declaration
+        Map<String, Object> response = new HashMap<String, Object>();
+        // Store the products list with its proper type
+        response.put("products", productResponses);
+        response.put("totalCount", productPage.getTotalElements());
+        response.put("totalPages", productPage.getTotalPages());
+        response.put("hasMore", page < productPage.getTotalPages() - 1);
+        
+        return response;
+    }
 
     @Override
+    @Transactional
     public ProductResponse getProductById(UUID productId) {
         // Find the product
         Product product = productRepository.findById(productId)
@@ -319,14 +356,39 @@ public class ProductServiceImpl implements ProductService {
                 .collect(Collectors.toList());
     }
     
+    @Override
+    public boolean isUserOwnerOrCollaborator(UUID businessId, UUID userId) {
+        // Find the business
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> ProductException.notFound("Business not found with ID: " + businessId));
+        
+        // In the current model, we don't have a direct owner field
+        // Instead, we'll use a repository method to check if the user is an owner or collaborator
+        return businessRepository.isUserCollaborator(businessId, userId);
+    }
+    
     // Helper method to map Product entity to ProductResponse DTO
     private ProductResponse mapToProductResponse(Product product) {
-        int totalItems = product.getPackets() * product.getItemsPerPacket();
-        double totalValue = totalItems * product.getPricePerItem();
-        
         // Get product images
-        List<ProductImageResponse> imageResponses = productImageService.getProductImages(product.getId());
+        List<ProductImage> productImages = product.getImages();
+        List<ProductImageResponse> imageResponses = new ArrayList<>();
         
+        if (productImages != null) {
+            imageResponses = productImages.stream()
+                    .map(image -> ProductImageResponse.builder()
+                            .id(image.getId())
+                            .imageUrl(image.getImageUrl())
+                            .publicId(image.getPublicId())
+                            .productId(product.getId())
+                            .build())
+                    .collect(Collectors.toList());
+        }
+        
+        // Calculate total items and value
+        int totalItems = product.getPackets() * product.getItemsPerPacket();
+        double totalValue = product.getPricePerItem() * totalItems;
+        
+        // Build response
         return ProductResponse.builder()
                 .id(product.getId())
                 .name(product.getName())

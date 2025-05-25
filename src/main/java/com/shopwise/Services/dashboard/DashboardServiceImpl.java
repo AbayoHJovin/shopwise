@@ -65,7 +65,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .orElseThrow(() -> new IllegalArgumentException("Business not found"));
         
         // Check if user is a collaborator
-        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user);
+        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user.getId());
         if (!isCollaborator) {
             throw new SecurityException("User does not have access to this business");
         }
@@ -266,8 +266,11 @@ public class DashboardServiceImpl implements DashboardService {
     
     /**
      * Calculate stock investment for the dashboard
+     * 
+     * @param business The business to calculate stock investment for
+     * @param dashboardBuilder The dashboard builder to update with the calculated value
      */
-    private BigDecimal calculateStockInvestment(Business business) {
+    private void calculateStockInvestment(Business business, BusinessDashboardDto.BusinessDashboardDtoBuilder dashboardBuilder) {
         // Get all products for the business
         List<Product> products = business.getProducts();
         
@@ -277,7 +280,7 @@ public class DashboardServiceImpl implements DashboardService {
         if (products != null) {
             for (Product product : products) {
                 BigDecimal productValue = BigDecimal.valueOf(product.getPricePerItem())
-                        .multiply(BigDecimal.valueOf(product.getPackets() * product.getItemsPerPacket()));
+                        .multiply(BigDecimal.valueOf((long) product.getPackets() * product.getItemsPerPacket()));
                 totalStockInvestment = totalStockInvestment.add(productValue);
             }
         }
@@ -388,7 +391,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .orElseThrow(() -> new IllegalArgumentException("Business not found"));
         
         // Check if user is a collaborator
-        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user);
+        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user.getId());
         if (!isCollaborator) {
             throw new SecurityException("User does not have access to this business");
         }
@@ -457,7 +460,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .orElseThrow(() -> new IllegalArgumentException("Business not found"));
         
         // Check if user is a collaborator
-        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user);
+        boolean isCollaborator = businessRepository.isUserCollaborator(businessId, user.getId());
         if (!isCollaborator) {
             throw new SecurityException("User does not have access to this business");
         }

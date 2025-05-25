@@ -5,6 +5,7 @@ import com.shopwise.Dto.product.ProductUpdateRequest;
 import com.shopwise.Dto.product.ProductResponse;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface ProductService {
@@ -37,6 +38,15 @@ public interface ProductService {
      * @return List of ProductResponse
      */
     List<ProductResponse> getAllProductsByBusiness(UUID businessId);
+    
+    /**
+     * Fetch products for a specific business with pagination.
+     * @param businessId UUID of the business
+     * @param page Page number (0-based)
+     * @param size Page size
+     * @return Map containing products list, total count, and hasMore flag
+     */
+    Map<String, Object> getAllProductsByBusinessPaginated(UUID businessId, int page, int size);
 
     /**
      * Fetch a single product by its ID.
@@ -78,4 +88,12 @@ public interface ProductService {
      * @return List of low-stock ProductResponses
      */
     List<ProductResponse> getLowStockProducts(UUID businessId, int threshold);
+    
+    /**
+     * Check if a user is the owner or a collaborator of a business.
+     * @param businessId UUID of the business
+     * @param userId UUID of the user
+     * @return true if the user is the owner or a collaborator, false otherwise
+     */
+    boolean isUserOwnerOrCollaborator(UUID businessId, UUID userId);
 }

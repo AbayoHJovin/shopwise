@@ -46,7 +46,7 @@ public class BusinessDashboardDto {
     private List<MonthlySalesDto> monthlySales;
     private String highestSalesMonth;
     
-    // Top selling products
+    // Top-selling products
     private List<ProductResponse> topSellingProducts;
     
     // Latest expenses
