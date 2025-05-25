@@ -49,6 +49,14 @@ public interface EmployeeService {
      * @param role Role to assign
      */
     void assignRole(UUID employeeId, Role role);
+    
+    /**
+     * Checks if a user is authorized to access a business's employee data.
+     * @param businessId UUID of the business
+     * @param userId UUID of the user
+     * @return true if the user is authorized, false otherwise
+     */
+    boolean isUserAuthorizedForBusiness(UUID businessId, UUID userId);
 
     /**
      * Invites a collaborator to join a business.

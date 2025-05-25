@@ -47,12 +47,12 @@ public class EmployeeServiceImpl implements EmployeeService {
         if (employeeRepository.findByEmail(request.getEmail()) != null) {
             throw EmployeeException.conflict("Employee with email " + request.getEmail() + " already exists");
         }
-        
+        String randomPassword = UUID.randomUUID().toString();
         // Create new employee
         Employee employee = new Employee();
         employee.setName(request.getName());
         employee.setEmail(request.getEmail());
-        employee.setPassword(passwordEncoder.encode(request.getPassword()));
+        employee.setPassword(passwordEncoder.encode(randomPassword));
         employee.setSalary(request.getSalary());
         employee.setJoinedDate(LocalDate.now());
         employee.setDisabled(false);
@@ -273,5 +273,15 @@ public class EmployeeServiceImpl implements EmployeeService {
     private String generateUniqueToken() {
         // In a real application, use a more secure token generation method
         return UUID.randomUUID().toString();
+    }
+    
+    @Override
+    public boolean isUserAuthorizedForBusiness(UUID businessId, UUID userId) {
+        // Check if business exists
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> EmployeeException.notFound("Business not found with ID: " + businessId));
+        
+        // Check if user is a collaborator of the business
+        return businessRepository.isUserCollaborator(businessId, userId);
     }
 }
