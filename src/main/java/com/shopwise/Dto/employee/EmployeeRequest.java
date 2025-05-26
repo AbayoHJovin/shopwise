@@ -21,10 +21,6 @@ public class EmployeeRequest {
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
-    
-    @NotBlank(message = "Password is required")
-    private String password;
-    
     @NotNull(message = "Salary is required")
     @Min(value = 0, message = "Salary must be at least 0")
     private Double salary;
