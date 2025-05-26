@@ -17,8 +17,7 @@ public class SaleRecordUpdateRequest {
     
     private UUID productId;
     
-    // Removed the quantitySold field and replaced with packetsSold and piecesSold
-    
+
     @Min(value = 0, message = "Packets sold must be non-negative")
     private Integer packetsSold;
     

@@ -128,6 +128,7 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     }
 
     @Override
+    @Transactional
     public List<SaleRecordResponse> getSalesByProduct(UUID productId) {
         // Check if product exists
         if (!productRepository.existsById(productId)) {
@@ -144,6 +145,7 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     }
 
     @Override
+    @Transactional
     public List<SaleRecordResponse> getSalesByBusiness(UUID businessId) {
         // Check if business exists
         if (!businessRepository.existsById(businessId)) {
@@ -160,6 +162,7 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     }
 
     @Override
+    @Transactional
     public List<SaleRecordResponse> getSalesByDate(UUID businessId, LocalDate date) {
         // Check if business exists
         if (!businessRepository.existsById(businessId)) {

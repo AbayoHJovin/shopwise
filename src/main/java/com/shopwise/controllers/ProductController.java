@@ -386,11 +386,29 @@ public class ProductController {
         }
     }
 
-    @GetMapping("/business/{businessId}/search")
-    public ResponseEntity<?> searchProducts(@PathVariable UUID businessId,
-                                           @RequestParam String keyword,
-                                           Authentication authentication) {
+    @GetMapping("/search")
+    public ResponseEntity<?> searchProducts(@RequestParam String keyword,
+                                           HttpServletRequest httpRequest) {
         try {
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+
+            // Check if business ID is available
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "No business selected. Please select a business first.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+            UUID businessId = UUID.fromString(businessIdStr);
+
             List<ProductResponse> products = productService.searchProducts(businessId, keyword);
             return ResponseEntity.ok(products);
         } catch (ProductException e) {

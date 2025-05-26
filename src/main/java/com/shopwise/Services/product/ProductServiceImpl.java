@@ -317,16 +317,14 @@ public class ProductServiceImpl implements ProductService {
     }
     
     @Override
+    @Transactional
     public List<ProductResponse> searchProducts(UUID businessId, String keyword) {
-        // Check if business exists
         if (!businessRepository.existsById(businessId)) {
             throw ProductException.notFound("Business not found with ID: " + businessId);
         }
         
-        // Get all products for the business
         List<Product> products = productRepository.findByBusinessId(businessId);
         
-        // Filter products by keyword (case-insensitive)
         String lowercaseKeyword = keyword.toLowerCase();
         
         return products.stream()
