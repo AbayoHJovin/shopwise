@@ -338,6 +338,7 @@ public class ProductServiceImpl implements ProductService {
     }
     
     @Override
+    @Transactional
     public List<ProductResponse> getLowStockProducts(UUID businessId, int threshold) {
         // Check if business exists
         if (!businessRepository.existsById(businessId)) {
@@ -355,6 +356,7 @@ public class ProductServiceImpl implements ProductService {
     }
     
     @Override
+    @Transactional
     public boolean isUserOwnerOrCollaborator(UUID businessId, UUID userId) {
         // Find the business
         Business business = businessRepository.findById(businessId)

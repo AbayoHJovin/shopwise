@@ -348,6 +348,29 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     // Helper method to map SaleRecord entity to SaleRecordResponse DTO
     private SaleRecordResponse mapToSaleRecordResponse(SaleRecord saleRecord) {
         Product product = saleRecord.getProduct();
+        
+        // Handle case where product might be null (possibly deleted product)
+        if (product == null) {
+            return SaleRecordResponse.builder()
+                    .id(saleRecord.getId())
+                    .packetsSold(saleRecord.getPacketsSold())
+                    .piecesSold(saleRecord.getPiecesSold())
+                    .totalPiecesSold(saleRecord.getTotalPiecesSold())
+                    .saleTime(saleRecord.getSaleTime())
+                    .manuallyAdjusted(saleRecord.isManuallyAdjusted())
+                    .loggedLater(saleRecord.isLoggedLater())
+                    .notes(saleRecord.getNotes())
+                    .actualSaleTime(saleRecord.getActualSaleTime())
+                    .productId(null)
+                    .productName("Deleted Product")
+                    .pricePerItem(0.0)
+                    .totalSaleValue(0.0)
+                    .businessId(saleRecord.getBusiness().getId())
+                    .businessName(saleRecord.getBusiness().getName())
+                    .build();
+        }
+        
+        // Calculate total sale value
         double totalSaleValue = saleRecord.getTotalPiecesSold() * product.getPricePerItem();
         
         return SaleRecordResponse.builder()

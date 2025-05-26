@@ -21,6 +21,9 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
     private String name;
+    @Lob
+    @Basic(fetch = FetchType.LAZY)
+    @Column(name="description", columnDefinition = "TEXT")
     private String description;
     private int packets;
     private int itemsPerPacket;

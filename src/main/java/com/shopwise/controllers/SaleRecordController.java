@@ -18,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -212,7 +213,7 @@ public class SaleRecordController {
      * @param date Date to filter sales
      * @param httpRequest HTTP request containing cookies
      * @param authentication Authentication object with user details
-     * @return Sales records and total amount for the business on the specified date
+     * @return Sales records and total amount for the business on the specified date, or a message if no sales found
      */
     @GetMapping("/date")
     public ResponseEntity<?> getSalesByDate(
@@ -220,19 +221,37 @@ public class SaleRecordController {
             HttpServletRequest httpRequest,
             Authentication authentication) {
         try {
+            log.info("Fetching sales for date: {}", date);
+            
             // Extract business ID from cookies
             UUID[] businessIdHolder = new UUID[1];
             ResponseEntity<Map<String, String>> errorResponse = validateAndExtractBusinessId(httpRequest, businessIdHolder);
             if (errorResponse != null) {
+                log.warn("Business validation failed when getting sales by date");
                 return errorResponse;
             }
+            UUID businessId = businessIdHolder[0];
             
-            List<SaleRecordResponse> sales = saleRecordService.getSalesByDate(businessIdHolder[0], date);
+            // Get sales for the specified date
+            List<SaleRecordResponse> sales = saleRecordService.getSalesByDate(businessId, date);
+            
+            // Check if there are any sales for this date
+            if (sales.isEmpty()) {
+                log.info("No sales found for business ID: {} on date: {}", businessId, date);
+                Map<String, Object> noSalesResponse = new HashMap<>();
+                noSalesResponse.put("message", "No sales found for the specified date: " + date);
+                noSalesResponse.put("sales", Collections.emptyList());
+                noSalesResponse.put("totalAmount", 0.0);
+                return ResponseEntity.ok(noSalesResponse);
+            }
             
             // Calculate the total amount of money made that day
             double totalAmount = sales.stream()
                     .mapToDouble(SaleRecordResponse::getTotalSaleValue)
                     .sum();
+            
+            log.info("Found {} sales for business ID: {} on date: {}, total amount: {}", 
+                    sales.size(), businessId, date, totalAmount);
             
             // Create response with sales list and total amount
             SalesWithTotalResponse response = SalesWithTotalResponse.builder()
@@ -242,13 +261,14 @@ public class SaleRecordController {
             
             return ResponseEntity.ok(response);
         } catch (SaleRecordException e) {
+            log.warn("Sale record exception when getting sales by date: {}", e.getMessage());
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());
             return ResponseEntity.status(e.getStatus()).body(errorResponse);
         } catch (Exception e) {
             log.error("Error getting sales by date", e);
             Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", e.getMessage());
+            errorResponse.put("error", "An unexpected error occurred while retrieving sales data. Please try again later.");
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
