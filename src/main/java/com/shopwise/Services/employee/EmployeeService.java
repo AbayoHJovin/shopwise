@@ -57,6 +57,15 @@ public interface EmployeeService {
      * @return true if the user is authorized, false otherwise
      */
     boolean isUserAuthorizedForBusiness(UUID businessId, UUID userId);
+    
+    /**
+     * Gets an employee by ID and verifies it belongs to the specified business.
+     * @param employeeId UUID of the employee to retrieve
+     * @param businessId UUID of the business to verify ownership
+     * @return EmployeeResponse if found and belongs to the business
+     * @throws EmployeeException if employee not found or doesn't belong to the business
+     */
+    EmployeeResponse getEmployeeByIdAndBusiness(UUID employeeId, UUID businessId);
 
     /**
      * Invites a collaborator to join a business.

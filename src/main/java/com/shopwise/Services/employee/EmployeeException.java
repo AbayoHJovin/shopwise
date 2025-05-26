@@ -29,4 +29,8 @@ public class EmployeeException extends RuntimeException {
     public static EmployeeException conflict(String message) {
         return new EmployeeException(message, HttpStatus.CONFLICT);
     }
+    
+    public static EmployeeException unauthorized(String message) {
+        return new EmployeeException(message, HttpStatus.UNAUTHORIZED);
+    }
 }

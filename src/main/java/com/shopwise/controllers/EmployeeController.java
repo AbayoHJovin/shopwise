@@ -28,6 +28,69 @@ import java.util.UUID;
 public class EmployeeController {
 
     private final EmployeeService employeeService;
+    
+    /**
+     * Get an employee by ID
+     * 
+     * @param employeeId ID of the employee to retrieve
+     * @param httpRequest HTTP request to extract the business cookie
+     * @param authentication The authentication object containing user details
+     * @return The employee details if found and authorized
+     */
+    @GetMapping("/{employeeId}")
+    public ResponseEntity<?> getEmployeeById(@PathVariable UUID employeeId,
+                                           HttpServletRequest httpRequest,
+                                           Authentication authentication) {
+        try {
+            // Extract user from authentication
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User not authenticated"));
+            }
+            
+            User currentUser = (User) authentication.getPrincipal();
+            
+            // Extract business ID from cookie
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+            
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("error", "No business selected"));
+            }
+            
+            UUID businessId = UUID.fromString(businessIdStr);
+            
+            // Check if user is authorized for this business
+            if (!employeeService.isUserAuthorizedForBusiness(businessId, currentUser.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "You are not authorized to access this business"));
+            }
+            
+            // Get employee by ID and verify business ownership
+            EmployeeResponse employee = employeeService.getEmployeeByIdAndBusiness(employeeId, businessId);
+            
+            return ResponseEntity.ok(employee);
+            
+        } catch (EmployeeException e) {
+            return ResponseEntity.status(e.getStatus())
+                    .body(Map.of("error", e.getMessage()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Invalid UUID format"));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
+        }
+    }
 
     /**
      * Add a new employee to the selected business

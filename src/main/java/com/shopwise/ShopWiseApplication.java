@@ -11,9 +11,8 @@ public class ShopWiseApplication {
 
     public static void main(String[] args) {
 
-        Dotenv dotenv = Dotenv.load(); // Load .env from root
+        Dotenv dotenv = Dotenv.load();
 
-        // Load .env entries as System properties
         dotenv.entries().forEach(entry -> {
             System.setProperty(entry.getKey(), entry.getValue());
         });

@@ -284,4 +284,19 @@ public class EmployeeServiceImpl implements EmployeeService {
         // Check if user is a collaborator of the business
         return businessRepository.isUserCollaborator(businessId, userId);
     }
+    
+    @Override
+    public EmployeeResponse getEmployeeByIdAndBusiness(UUID employeeId, UUID businessId) {
+        // Find the employee
+        Employee employee = employeeRepository.findById(employeeId)
+                .orElseThrow(() -> EmployeeException.notFound("Employee not found with ID: " + employeeId));
+        
+        // Verify the employee belongs to the specified business
+        if (employee.getBusiness() == null || !employee.getBusiness().getId().equals(businessId)) {
+            throw EmployeeException.unauthorized("Employee does not belong to the specified business");
+        }
+        
+        // Return the employee DTO
+        return mapToEmployeeResponse(employee);
+    }
 }
