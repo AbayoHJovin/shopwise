@@ -128,36 +128,59 @@ public class UserAuthController {
             }
             
             if (token == null) {
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "Not authenticated");
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Authentication required");
+                errorResponse.put("message", "Please log in to access this resource");
+                errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
             
-            // Validate the token and get user details
-            String email = jwtService.extractClaims(token).getSubject(); // Email is stored as the subject
-            String userType = jwtService.extractType(token);
-            
-            if (userType != null && !"user".equals(userType)) {
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "Invalid authentication type");
+            try {
+                // Validate the token and get user details
+                String email = jwtService.extractClaims(token).getSubject(); // Email is stored as the subject
+                String userType = jwtService.extractType(token);
+                
+                if (userType != null && !"user".equals(userType)) {
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("error", "Invalid credentials");
+                    errorResponse.put("message", "Your session is invalid. Please log in again.");
+                    errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+                }
+                
+                User user = userService.getUserByEmail(email);
+                
+                if (user == null) {
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("error", "User not found");
+                    errorResponse.put("message", "Your account could not be found. Please log in again.");
+                    errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
+                    return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+                }
+                
+                // Convert to DTO to avoid exposing sensitive information
+                UserDto userDto = UserDto.fromEntity(user);
+                
+                return ResponseEntity.ok(userDto);
+            } catch (io.jsonwebtoken.ExpiredJwtException e) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Session expired");
+                errorResponse.put("message", "Your session has expired. Please log in again.");
+                errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
+            } catch (io.jsonwebtoken.JwtException e) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "Invalid token");
+                errorResponse.put("message", "Your authentication token is invalid. Please log in again.");
+                errorResponse.put("status", HttpStatus.UNAUTHORIZED.value());
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
             }
-            
-            User user = userService.getUserByEmail(email);
-            
-            if (user == null) {
-                Map<String, String> errorResponse = new HashMap<>();
-                errorResponse.put("error", "User not found");
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorResponse);
-            }
-            
-            // Convert to DTO to avoid exposing sensitive information
-            UserDto userDto = UserDto.fromEntity(user);
-            
-            return ResponseEntity.ok(userDto);
         } catch (Exception e) {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Error retrieving user details: " + e.getMessage());
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Authentication error");
+            errorResponse.put("message", "An error occurred while verifying your identity. Please try again later.");
+            errorResponse.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+            errorResponse.put("details", e.getMessage()); // Only for debugging, can be removed in production
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }

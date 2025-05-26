@@ -65,12 +65,10 @@ public class BusinessServiceImpl implements BusinessService {
         business.setSaleRecords(new ArrayList<>());
         business.setSummaries(new ArrayList<>());
         business.setCollaborationRequests(new ArrayList<>());
-        business.setAvailability(new ArrayList<>());
-        
+
         Business savedBusiness = businessRepository.save(business);
         
-        // Log the business creation in daily summary
-        dailySummaryService.logDailyAction(savedBusiness.getId(), 
+        dailySummaryService.logDailyAction(savedBusiness.getId(),
                 "Business '" + savedBusiness.getName() + "' was created by " + owner.getEmail());
         
         return mapToDto(savedBusiness);

@@ -51,7 +51,7 @@ public class Business {
 
     @ManyToMany
     private List<User> collaborators;
-
-    @OneToMany(mappedBy = "business", cascade = CascadeType.ALL)
-    private List<AvailabilitySlot> availability;
+    
+    // Flag to indicate if the business is currently open
+    private boolean open = false;
 }
