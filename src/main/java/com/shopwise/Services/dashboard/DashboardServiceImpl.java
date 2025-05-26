@@ -336,7 +336,7 @@ public class DashboardServiceImpl implements DashboardService {
                 Product product = saleRecord.getProduct();
                 if (product != null) {
                     BigDecimal saleValue = BigDecimal.valueOf(product.getPricePerItem())
-                            .multiply(BigDecimal.valueOf(saleRecord.getQuantitySold()));
+                            .multiply(BigDecimal.valueOf(saleRecord.getTotalPiecesSold()));
                     totalRevenue = totalRevenue.add(saleValue);
                 }
             }

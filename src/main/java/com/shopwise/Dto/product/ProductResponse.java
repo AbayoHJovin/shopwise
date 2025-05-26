@@ -27,6 +27,5 @@ public class ProductResponse {
     private int totalItems;
     private double totalValue;
     
-    // Product images (max 3)
     private List<ProductImageResponse> images;
 }

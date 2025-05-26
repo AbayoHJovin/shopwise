@@ -50,7 +50,7 @@ public interface SaleRecordRepository extends JpaRepository<SaleRecord, UUID> {
      * @param limit The maximum number of products to return
      * @return List of products with their total quantity sold, ordered by quantity in descending order
      */
-    @Query("SELECT s.product, SUM(s.quantitySold) as totalSold FROM SaleRecord s " +
+    @Query("SELECT s.product, SUM(s.totalPiecesSold) as totalSold FROM SaleRecord s " +
            "WHERE s.business.id = :businessId " +
            "GROUP BY s.product " +
            "ORDER BY totalSold DESC")

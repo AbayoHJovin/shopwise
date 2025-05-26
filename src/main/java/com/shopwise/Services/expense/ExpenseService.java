@@ -38,7 +38,7 @@ public interface ExpenseService {
 
     /**
      * Deletes an expense.
-     * @param expenseId UUID of the expense to delete
+     * @param expenseId ID of the expense to delete
      */
-    void deleteExpense(UUID expenseId);
+    void deleteExpense(Long expenseId);
 }

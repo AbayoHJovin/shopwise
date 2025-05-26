@@ -17,8 +17,13 @@ public class SaleRecordUpdateRequest {
     
     private UUID productId;
     
-    @Min(value = 1, message = "Quantity sold must be at least 1")
-    private Integer quantitySold;
+    // Removed the quantitySold field and replaced with packetsSold and piecesSold
+    
+    @Min(value = 0, message = "Packets sold must be non-negative")
+    private Integer packetsSold;
+    
+    @Min(value = 0, message = "Pieces sold must be non-negative")
+    private Integer piecesSold;
     
     private LocalDateTime saleTime;
     
@@ -29,4 +34,27 @@ public class SaleRecordUpdateRequest {
     private String notes;
     
     private LocalDateTime actualSaleTime;
+    
+    /**
+     * Validates that at least one of packetsSold or piecesSold is provided and greater than zero
+     * 
+     * @return true if valid, false otherwise
+     */
+    public boolean isValidSale() {
+        return (packetsSold != null && packetsSold > 0) || 
+               (piecesSold != null && piecesSold > 0);
+    }
+    
+    /**
+     * Calculates the total quantity sold in terms of individual pieces
+     * 
+     * @param itemsPerPacket The number of items in each packet for this product
+     * @return The total number of individual pieces sold
+     */
+    public int calculateTotalPiecesSold(int itemsPerPacket) {
+        int packetsTotal = (packetsSold != null) ? packetsSold : 0;
+        int piecesTotal = (piecesSold != null) ? piecesSold : 0;
+        
+        return (packetsTotal * itemsPerPacket) + piecesTotal;
+    }
 }

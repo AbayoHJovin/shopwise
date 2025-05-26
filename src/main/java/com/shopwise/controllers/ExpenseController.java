@@ -154,7 +154,7 @@ public class ExpenseController {
     }
     
     @DeleteMapping("/{expenseId}")
-    public ResponseEntity<?> deleteExpense(@PathVariable UUID expenseId,
+    public ResponseEntity<?> deleteExpense(@PathVariable Long expenseId,
                                          Authentication authentication) {
         try {
             expenseService.deleteExpense(expenseId);

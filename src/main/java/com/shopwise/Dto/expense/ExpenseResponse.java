@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ExpenseResponse {
-    private UUID id;
+    private Long id;
     private String title;
     private double amount;
     private String category;

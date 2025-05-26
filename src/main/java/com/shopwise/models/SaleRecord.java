@@ -19,7 +19,9 @@ public class SaleRecord {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
-    private int quantitySold;
+    private int packetsSold;
+    private int piecesSold;
+    private int totalPiecesSold; // Total quantity in individual pieces
     private LocalDateTime saleTime;
     private boolean manuallyAdjusted;
     private boolean loggedLater;

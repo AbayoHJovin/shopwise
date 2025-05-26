@@ -61,6 +61,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
+    @Transactional
     public List<ExpenseResponse> getExpensesByBusiness(UUID businessId) {
         // Check if business exists
         if (!businessRepository.existsById(businessId)) {
@@ -77,6 +78,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
+    @Transactional
     public List<ExpenseResponse> getExpensesByDateRange(UUID businessId, LocalDate startDate, LocalDate endDate) {
         // Check if business exists
         if (!businessRepository.existsById(businessId)) {
@@ -104,7 +106,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Override
     @Transactional
-    public void deleteExpense(UUID expenseId) {
+    public void deleteExpense(Long expenseId) {
         // Check if expense exists
         Expense expense = expenseRepository.findById(expenseId)
                 .orElseThrow(() -> ExpenseException.notFound("Expense not found with ID: " + expenseId));

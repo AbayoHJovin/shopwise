@@ -33,6 +33,11 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     @Override
     @Transactional
     public SaleRecordResponse logSale(UUID businessId, SaleRecordRequest request) {
+        // Validate the sale request
+        if (!request.isValidSale()) {
+            throw SaleRecordException.badRequest("At least one of packetsSold or piecesSold must be provided and greater than zero");
+        }
+        
         // Find the business
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> SaleRecordException.notFound("Business not found with ID: " + businessId));
@@ -46,16 +51,22 @@ public class SaleRecordServiceImpl implements SaleRecordService {
             throw SaleRecordException.badRequest("Product does not belong to the specified business");
         }
         
+        // Calculate total pieces being sold
+        int itemsPerPacket = product.getItemsPerPacket();
+        int totalPiecesSold = request.calculateTotalPiecesSold(itemsPerPacket);
+        
         // Check if there's enough stock
-        int currentStock = product.getPackets() * product.getItemsPerPacket();
-        if (currentStock < request.getQuantitySold()) {
+        int currentStockInPieces = product.getPackets() * itemsPerPacket;
+        if (currentStockInPieces < totalPiecesSold) {
             throw SaleRecordException.badRequest("Not enough stock available. Current stock: " + 
-                    currentStock + ", Requested: " + request.getQuantitySold());
+                    currentStockInPieces + " pieces, Requested: " + totalPiecesSold + " pieces");
         }
         
         // Create new sale record
         SaleRecord saleRecord = new SaleRecord();
-        saleRecord.setQuantitySold(request.getQuantitySold());
+        saleRecord.setPacketsSold(request.getPacketsSold() != null ? request.getPacketsSold() : 0);
+        saleRecord.setPiecesSold(request.getPiecesSold() != null ? request.getPiecesSold() : 0);
+        saleRecord.setTotalPiecesSold(totalPiecesSold);
         
         // Set sale time (use provided time or current time)
         LocalDateTime saleTime = request.getSaleTime() != null ? 
@@ -79,27 +90,38 @@ public class SaleRecordServiceImpl implements SaleRecordService {
         // Save sale record
         SaleRecord savedSaleRecord = saleRecordRepository.save(saleRecord);
         
-        // Update product stock
-        int remainingItems = currentStock - request.getQuantitySold();
-        int itemsPerPacket = product.getItemsPerPacket();
-        int newPackets = remainingItems / itemsPerPacket;
-        int leftoverItems = remainingItems % itemsPerPacket;
+        // Update product stock - calculate remaining pieces and convert back to packets
+        int remainingPieces = currentStockInPieces - totalPiecesSold;
+        int newPackets = remainingPieces / itemsPerPacket;
         
-        if (leftoverItems > 0) {
-            // If there are leftover items, add an extra packet
+        // If there are leftover pieces, we need to handle them appropriately
+        // In a real-world scenario, we might want to track these separately
+        // For now, we'll round up to the nearest packet
+        if (remainingPieces % itemsPerPacket > 0) {
             newPackets++;
-            // In a real application, we might want to track the partial packet separately
         }
         
         product.setPackets(newPackets);
         productRepository.save(product);
         
         // Log the sale in daily summary
-        double totalValue = savedSaleRecord.getQuantitySold() * product.getPricePerItem();
+        double totalValue = savedSaleRecord.getTotalPiecesSold() * product.getPricePerItem();
         String formattedAmount = String.format("%.2f", totalValue);
-        dailySummaryService.logDailyAction(businessId, 
-                "Sale recorded: " + savedSaleRecord.getQuantitySold() + " units of '" + 
-                product.getName() + "' for a total of " + formattedAmount);
+        
+        // Create a detailed sale description
+        StringBuilder saleDescription = new StringBuilder("Sale recorded: ");
+        if (savedSaleRecord.getPacketsSold() > 0) {
+            saleDescription.append(savedSaleRecord.getPacketsSold()).append(" packet(s)");
+            if (savedSaleRecord.getPiecesSold() > 0) {
+                saleDescription.append(" and ");
+            }
+        }
+        if (savedSaleRecord.getPiecesSold() > 0) {
+            saleDescription.append(savedSaleRecord.getPiecesSold()).append(" piece(s)");
+        }
+        saleDescription.append(" of '").append(product.getName()).append("' for a total of ").append(formattedAmount);
+        
+        dailySummaryService.logDailyAction(businessId, saleDescription.toString());
         
         // Return response
         return mapToSaleRecordResponse(savedSaleRecord);
@@ -161,19 +183,31 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     @Override
     @Transactional
     public SaleRecordResponse updateSale(UUID saleId, SaleRecordUpdateRequest request) {
+        // Validate the sale update request if packets or pieces are provided
+        if ((request.getPacketsSold() != null || request.getPiecesSold() != null) && !request.isValidSale()) {
+            throw SaleRecordException.badRequest("At least one of packetsSold or piecesSold must be greater than zero");
+        }
+        
         // Find the sale record
         SaleRecord saleRecord = saleRecordRepository.findById(saleId)
                 .orElseThrow(() -> SaleRecordException.notFound("Sale record not found with ID: " + saleId));
         
-        // Handle product change if requested
+        // Get the original product and quantities for stock calculations
         Product product = saleRecord.getProduct();
-        int originalQuantitySold = saleRecord.getQuantitySold();
-        int newQuantitySold = request.getQuantitySold() != null ? request.getQuantitySold() : originalQuantitySold;
+        int originalPacketsSold = saleRecord.getPacketsSold();
+        int originalPiecesSold = saleRecord.getPiecesSold();
+        int originalTotalPiecesSold = saleRecord.getTotalPiecesSold();
         
+        // Check if product is being changed
         if (request.getProductId() != null && !request.getProductId().equals(product.getId())) {
-            // Product is being changed
+            // Find the new product
             Product newProduct = productRepository.findById(request.getProductId())
-                    .orElseThrow(() -> SaleRecordException.notFound("Product not found with ID: " + request.getProductId()));
+                    .orElseThrow(() -> SaleRecordException.notFound("New product not found with ID: " + request.getProductId()));
+            
+            // Get the new quantities (or use original if not provided)
+            int newPacketsSold = request.getPacketsSold() != null ? request.getPacketsSold() : originalPacketsSold;
+            int newPiecesSold = request.getPiecesSold() != null ? request.getPiecesSold() : originalPiecesSold;
+            int newTotalPiecesSold = (newPacketsSold * newProduct.getItemsPerPacket()) + newPiecesSold;
             
             // Validate that the new product belongs to the same business
             if (!newProduct.getBusiness().getId().equals(saleRecord.getBusiness().getId())) {
@@ -181,28 +215,28 @@ public class SaleRecordServiceImpl implements SaleRecordService {
             }
             
             // Restore stock to original product
-            int currentOriginalStock = product.getPackets() * product.getItemsPerPacket();
-            int newOriginalStock = currentOriginalStock + originalQuantitySold;
+            int currentOriginalStockInPieces = product.getPackets() * product.getItemsPerPacket();
+            int newOriginalStockInPieces = currentOriginalStockInPieces + originalTotalPiecesSold;
             int originalItemsPerPacket = product.getItemsPerPacket();
-            int newOriginalPackets = newOriginalStock / originalItemsPerPacket;
-            if (newOriginalStock % originalItemsPerPacket > 0) {
+            int newOriginalPackets = newOriginalStockInPieces / originalItemsPerPacket;
+            if (newOriginalStockInPieces % originalItemsPerPacket > 0) {
                 newOriginalPackets++;
             }
             product.setPackets(newOriginalPackets);
             productRepository.save(product);
             
             // Check if there's enough stock in the new product
-            int currentNewStock = newProduct.getPackets() * newProduct.getItemsPerPacket();
-            if (currentNewStock < newQuantitySold) {
+            int currentNewStockInPieces = newProduct.getPackets() * newProduct.getItemsPerPacket();
+            if (currentNewStockInPieces < newTotalPiecesSold) {
                 throw SaleRecordException.badRequest("Not enough stock available in the new product. Current stock: " + 
-                        currentNewStock + ", Requested: " + newQuantitySold);
+                        currentNewStockInPieces + " pieces, Requested: " + newTotalPiecesSold + " pieces");
             }
             
             // Update new product stock
-            int remainingNewItems = currentNewStock - newQuantitySold;
+            int remainingNewPieces = currentNewStockInPieces - newTotalPiecesSold;
             int newItemsPerPacket = newProduct.getItemsPerPacket();
-            int newNewPackets = remainingNewItems / newItemsPerPacket;
-            if (remainingNewItems % newItemsPerPacket > 0) {
+            int newNewPackets = remainingNewPieces / newItemsPerPacket;
+            if (remainingNewPieces % newItemsPerPacket > 0) {
                 newNewPackets++;
             }
             newProduct.setPackets(newNewPackets);
@@ -210,32 +244,41 @@ public class SaleRecordServiceImpl implements SaleRecordService {
             
             // Update sale record with new product
             saleRecord.setProduct(newProduct);
-        } else if (newQuantitySold != originalQuantitySold) {
-            // Only quantity is being changed
-            int currentStock = product.getPackets() * product.getItemsPerPacket();
-            int stockDifference = originalQuantitySold - newQuantitySold;
+            saleRecord.setPacketsSold(newPacketsSold);
+            saleRecord.setPiecesSold(newPiecesSold);
+            saleRecord.setTotalPiecesSold(newTotalPiecesSold);
+        } else if (request.getPacketsSold() != null || request.getPiecesSold() != null) {
+            // Only quantities are being changed
+            int newPacketsSold = request.getPacketsSold() != null ? request.getPacketsSold() : originalPacketsSold;
+            int newPiecesSold = request.getPiecesSold() != null ? request.getPiecesSold() : originalPiecesSold;
+            int newTotalPiecesSold = (newPacketsSold * product.getItemsPerPacket()) + newPiecesSold;
             
-            if (stockDifference < 0 && currentStock < Math.abs(stockDifference)) {
+            // Calculate stock difference
+            int currentStockInPieces = product.getPackets() * product.getItemsPerPacket();
+            int stockDifferenceInPieces = originalTotalPiecesSold - newTotalPiecesSold;
+            
+            if (stockDifferenceInPieces < 0 && currentStockInPieces < Math.abs(stockDifferenceInPieces)) {
                 throw SaleRecordException.badRequest("Not enough stock available for the increased quantity. Current stock: " + 
-                        currentStock + ", Additional needed: " + Math.abs(stockDifference));
+                        currentStockInPieces + " pieces, Additional needed: " + Math.abs(stockDifferenceInPieces) + " pieces");
             }
             
             // Update product stock
-            int newTotalItems = currentStock + stockDifference;
+            int newTotalPieces = currentStockInPieces + stockDifferenceInPieces;
             int itemsPerPacket = product.getItemsPerPacket();
-            int newPackets = newTotalItems / itemsPerPacket;
-            if (newTotalItems % itemsPerPacket > 0) {
+            int newPackets = newTotalPieces / itemsPerPacket;
+            if (newTotalPieces % itemsPerPacket > 0) {
                 newPackets++;
             }
             product.setPackets(newPackets);
             productRepository.save(product);
+            
+            // Update sale record quantities
+            saleRecord.setPacketsSold(newPacketsSold);
+            saleRecord.setPiecesSold(newPiecesSold);
+            saleRecord.setTotalPiecesSold(newTotalPiecesSold);
         }
         
         // Update sale record fields
-        if (request.getQuantitySold() != null) {
-            saleRecord.setQuantitySold(request.getQuantitySold());
-        }
-        
         if (request.getSaleTime() != null) {
             saleRecord.setSaleTime(request.getSaleTime());
         }
@@ -261,7 +304,7 @@ public class SaleRecordServiceImpl implements SaleRecordService {
         
         // Log the sale update in daily summary
         Product updatedProduct = updatedSaleRecord.getProduct();
-        double totalValue = updatedSaleRecord.getQuantitySold() * updatedProduct.getPricePerItem();
+        double totalValue = updatedSaleRecord.getTotalPiecesSold() * updatedProduct.getPricePerItem();
         String formattedAmount = String.format("%.2f", totalValue);
         
         StringBuilder updateDetails = new StringBuilder();
@@ -271,9 +314,14 @@ public class SaleRecordServiceImpl implements SaleRecordService {
             updateDetails.append("product changed, ");
         }
         
-        if (request.getQuantitySold() != null && request.getQuantitySold() != originalQuantitySold) {
-            updateDetails.append("quantity changed from ").append(originalQuantitySold)
-                    .append(" to ").append(request.getQuantitySold()).append(", ");
+        if (request.getPacketsSold() != null && request.getPacketsSold() != originalPacketsSold) {
+            updateDetails.append("packets changed from ").append(originalPacketsSold)
+                    .append(" to ").append(request.getPacketsSold()).append(", ");
+        }
+        
+        if (request.getPiecesSold() != null && request.getPiecesSold() != originalPiecesSold) {
+            updateDetails.append("pieces changed from ").append(originalPiecesSold)
+                    .append(" to ").append(request.getPiecesSold()).append(", ");
         }
         
         if (request.getSaleTime() != null) {
@@ -297,11 +345,13 @@ public class SaleRecordServiceImpl implements SaleRecordService {
     // Helper method to map SaleRecord entity to SaleRecordResponse DTO
     private SaleRecordResponse mapToSaleRecordResponse(SaleRecord saleRecord) {
         Product product = saleRecord.getProduct();
-        double totalSaleValue = saleRecord.getQuantitySold() * product.getPricePerItem();
+        double totalSaleValue = saleRecord.getTotalPiecesSold() * product.getPricePerItem();
         
         return SaleRecordResponse.builder()
                 .id(saleRecord.getId())
-                .quantitySold(saleRecord.getQuantitySold())
+                .packetsSold(saleRecord.getPacketsSold())
+                .piecesSold(saleRecord.getPiecesSold())
+                .totalPiecesSold(saleRecord.getTotalPiecesSold())
                 .saleTime(saleRecord.getSaleTime())
                 .manuallyAdjusted(saleRecord.isManuallyAdjusted())
                 .loggedLater(saleRecord.isLoggedLater())
