@@ -16,8 +16,6 @@ public class DailySummaryResponse {
     private UUID id;
     private String description;
     private LocalDateTime timestamp;
-    
-    // Business details
     private UUID businessId;
     private String businessName;
 }

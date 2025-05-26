@@ -24,6 +24,7 @@ public class DailySummaryServiceImpl implements DailySummaryService {
     private final BusinessRepository businessRepository;
 
     @Override
+    @Transactional
     public List<DailySummaryResponse> getDailySummaries(UUID businessId) {
         // Validate business exists
         if (!businessRepository.existsById(businessId)) {
@@ -40,6 +41,7 @@ public class DailySummaryServiceImpl implements DailySummaryService {
     }
 
     @Override
+    @Transactional
     public DailySummaryResponse getSummaryByDate(UUID businessId, LocalDate date) {
         // Validate business exists
         if (!businessRepository.existsById(businessId)) {

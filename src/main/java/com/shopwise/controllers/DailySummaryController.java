@@ -3,6 +3,8 @@ package com.shopwise.controllers;
 import com.shopwise.Dto.dailysummary.DailySummaryResponse;
 import com.shopwise.Services.dailysummary.DailySummaryException;
 import com.shopwise.Services.dailysummary.DailySummaryService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -55,17 +57,33 @@ public class DailySummaryController {
     /**
      * Gets a daily summary for a business on a specific date
      * 
-     * @param businessId Business ID
      * @param date Date to filter summary
-     * @param authentication Authentication object with user details
      * @return Daily summary for the business on the specified date
      */
-    @GetMapping("/business/{businessId}/date")
+    @GetMapping("/date")
     public ResponseEntity<?> getSummaryByDate(
-            @PathVariable UUID businessId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            HttpServletRequest httpRequest,
             Authentication authentication) {
         try {
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "No business selected. Please select a business first.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            UUID businessId=UUID.fromString(businessIdStr);
             DailySummaryResponse summary = dailySummaryService.getSummaryByDate(businessId, date);
             return ResponseEntity.ok(summary);
         } catch (DailySummaryException e) {
