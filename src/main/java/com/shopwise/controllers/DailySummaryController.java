@@ -55,10 +55,10 @@ public class DailySummaryController {
     }
 
     /**
-     * Gets a daily summary for a business on a specific date
+     * Gets all daily summaries for a business on a specific date
      * 
-     * @param date Date to filter summary
-     * @return Daily summary for the business on the specified date
+     * @param date Date to filter summaries
+     * @return List of daily summaries for the business on the specified date
      */
     @GetMapping("/date")
     public ResponseEntity<?> getSummaryByDate(
@@ -83,9 +83,9 @@ public class DailySummaryController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
             }
 
-            UUID businessId=UUID.fromString(businessIdStr);
-            DailySummaryResponse summary = dailySummaryService.getSummaryByDate(businessId, date);
-            return ResponseEntity.ok(summary);
+            UUID businessId = UUID.fromString(businessIdStr);
+            List<DailySummaryResponse> summaries = dailySummaryService.getSummaryByDate(businessId, date);
+            return ResponseEntity.ok(summaries);
         } catch (DailySummaryException e) {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", e.getMessage());

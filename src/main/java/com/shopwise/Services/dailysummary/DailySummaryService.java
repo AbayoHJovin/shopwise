@@ -19,12 +19,12 @@ public interface DailySummaryService {
     List<DailySummaryResponse> getDailySummaries(UUID businessId);
 
     /**
-     * Retrieves daily summaries for a business on a specific date.
+     * Retrieves all daily summaries for a business on a specific date.
      * @param businessId UUID of the business
      * @param date Date to filter summaries
-     * @return DailySummaryResponse for the specified date
+     * @return List of DailySummaryResponse objects for the specified date
      */
-    DailySummaryResponse getSummaryByDate(UUID businessId, LocalDate date);
+    List<DailySummaryResponse> getSummaryByDate(UUID businessId, LocalDate date);
 
     /**
      * Logs a daily action for a business.

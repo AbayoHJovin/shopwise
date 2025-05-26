@@ -3,6 +3,7 @@ package com.shopwise.Services.business;
 import com.shopwise.Dto.BusinessDto;
 import com.shopwise.Dto.LocationDto;
 import com.shopwise.Dto.Request.CreateBusinessRequest;
+import com.shopwise.Dto.business.BusinessUpdateRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.CollaborationRequestRepository;
 import com.shopwise.Repository.UserRepository;
@@ -155,7 +156,7 @@ public class BusinessServiceImpl implements BusinessService {
 
     @Override
     @Transactional
-    public BusinessDto updateBusiness(UUID businessId, BusinessDto updates, User requester) {
+    public BusinessDto updateBusiness(UUID businessId, BusinessUpdateRequest updates, User requester) {
         Business business = findBusinessAndCheckAccess(businessId, requester);
         
         // Update fields if provided
@@ -254,8 +255,33 @@ public class BusinessServiceImpl implements BusinessService {
         Business business = businessRepository.findById(businessId)
                 .orElseThrow(() -> BusinessException.notFound("Business not found"));
         
-        // Check if user has access to this business
-        if (!business.getCollaborators().contains(requester)) {
+        // Check if user has access to this business by comparing IDs
+        boolean hasAccess = false;
+        UUID requesterId = requester.getId();
+        
+        // Extract all collaborator IDs and check if the requester's ID is among them
+        if (business.getCollaborators() != null) {
+            hasAccess = business.getCollaborators().stream()
+                    .map(User::getId)
+                    .anyMatch(id -> id.equals(requesterId));
+        }
+        
+        if (!hasAccess) {
+            // Log the IDs for debugging
+            System.out.println("BusinessId: " + businessId);
+            System.out.println("RequesterId: " + requesterId);
+            
+            // Log all collaborator IDs for debugging
+            if (business.getCollaborators() != null) {
+                System.out.println("Collaborator IDs: " + 
+                    business.getCollaborators().stream()
+                        .map(User::getId)
+                        .map(UUID::toString)
+                        .collect(java.util.stream.Collectors.joining(", ")));
+            } else {
+                System.out.println("Collaborators list is null");
+            }
+            
             throw BusinessException.forbidden("You don't have access to this business");
         }
         

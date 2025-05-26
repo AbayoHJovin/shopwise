@@ -2,9 +2,12 @@ package com.shopwise.controllers;
 
 import com.shopwise.Dto.BusinessDto;
 import com.shopwise.Dto.Request.CreateBusinessRequest;
+import com.shopwise.Dto.business.BusinessUpdateRequest;
 import com.shopwise.Services.business.BusinessException;
 import com.shopwise.Services.business.BusinessService;
 import com.shopwise.models.User;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -39,10 +42,30 @@ public class BusinessController {
         }
     }
 
-    @GetMapping("/{businessId}")
-    public ResponseEntity<?> getBusinessById(@PathVariable UUID businessId, 
+    @GetMapping("/get-by-id")
+    public ResponseEntity<?> getBusinessById(HttpServletRequest httpRequest,
                                              Authentication authentication) {
         try {
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+
+            // Check if business ID is available
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "No business selected. Please select a business first.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            // Parse business ID
+            UUID businessId= UUID.fromString(businessIdStr);
             User currentUser = (User) authentication.getPrincipal();
             BusinessDto business = businessService.getBusinessById(businessId, currentUser);
             
@@ -72,12 +95,41 @@ public class BusinessController {
         }
     }
 
-    @PutMapping("/{businessId}")
-    public ResponseEntity<?> updateBusiness(@PathVariable UUID businessId,
-                                            @RequestBody BusinessDto updates,
-                                            Authentication authentication) {
+    /**
+     * Updates business information using the selected business from cookies
+     * 
+     * @param updates Business update request with fields to update
+     * @param httpRequest HTTP request containing cookies
+     * @param authentication Authentication object with user details
+     * @return Updated business information
+     */
+    @PatchMapping("/update")
+    public ResponseEntity<?> updateBusiness(
+            @RequestBody BusinessUpdateRequest updates,
+            HttpServletRequest httpRequest,
+            Authentication authentication) {
         try {
+            // Extract business ID from cookies
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+            
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "No business selected. Please select a business first.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+            
+            UUID businessId = UUID.fromString(businessIdStr);
             User currentUser = (User) authentication.getPrincipal();
+            
             BusinessDto updatedBusiness = businessService.updateBusiness(businessId, updates, currentUser);
             
             return ResponseEntity.ok(updatedBusiness);

@@ -42,7 +42,7 @@ public class DailySummaryServiceImpl implements DailySummaryService {
 
     @Override
     @Transactional
-    public DailySummaryResponse getSummaryByDate(UUID businessId, LocalDate date) {
+    public List<DailySummaryResponse> getSummaryByDate(UUID businessId, LocalDate date) {
         // Validate business exists
         if (!businessRepository.existsById(businessId)) {
             throw DailySummaryException.notFound("Business not found with ID: " + businessId);
@@ -58,12 +58,13 @@ public class DailySummaryServiceImpl implements DailySummaryService {
         
         // If no summary exists for the date, throw exception
         if (summaries.isEmpty()) {
-            throw DailySummaryException.notFound("No daily summary found for business ID: " + 
-                    businessId + " on date: " + date);
+            throw DailySummaryException.notFound("No summary found for your business on date: " + date);
         }
         
-        // Return the first summary (should be the most recent due to ORDER BY in the query)
-        return mapToDailySummaryResponse(summaries.get(0));
+        // Return all summaries for the specified date
+        return summaries.stream()
+                .map(this::mapToDailySummaryResponse)
+                .collect(Collectors.toList());
     }
 
     @Override

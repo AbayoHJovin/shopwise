@@ -52,6 +52,5 @@ public class Business {
     @ManyToMany
     private List<User> collaborators;
     
-    // Flag to indicate if the business is currently open
     private boolean open = false;
 }
