@@ -114,13 +114,11 @@ public class ProductServiceImpl implements ProductService {
         
         // Update product images if provided
         if (request.getImages() != null) {
-            // Delete existing images first
             productImageService.deleteAllProductImages(productId);
-            
-            // Add new images
+
             List<ProductImageResponse> imageResponses = new ArrayList<>();
             for (ProductImageRequest imageRequest : request.getImages()) {
-                if (imageResponses.size() < 3) { // Enforce max 3 images
+                if (imageResponses.size() < 3) {
                     ProductImageResponse imageResponse = productImageService.addProductImage(updatedProduct.getId(), imageRequest);
                     imageResponses.add(imageResponse);
                 }
