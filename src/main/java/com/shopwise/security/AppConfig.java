@@ -2,6 +2,7 @@ package com.shopwise.security;
 
 import com.shopwise.Services.auth.JwtService;
 import com.shopwise.Services.auth.UserDetailsServiceImpl;
+import com.shopwise.config.MultipartRequestFilter;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.context.annotation.Bean;
@@ -30,6 +31,7 @@ public class AppConfig {
 
     private final UserDetailsServiceImpl userDetailsService;
     private final JwtService jwtService;
+    private final MultipartRequestFilter multipartRequestFilter;
 
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter() {
@@ -85,6 +87,7 @@ public class AppConfig {
                         .requestMatchers("/api/collaborators/**").permitAll() // Allow access to confirm collaboration
                         .anyRequest().authenticated()
                 )
+                .addFilterBefore(multipartRequestFilter, UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
