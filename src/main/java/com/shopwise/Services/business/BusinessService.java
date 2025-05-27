@@ -2,6 +2,7 @@ package com.shopwise.Services.business;
 
 import com.shopwise.Dto.BusinessDto;
 import com.shopwise.Dto.Request.CreateBusinessRequest;
+import com.shopwise.Dto.business.BusinessDeleteRequest;
 import com.shopwise.Dto.business.BusinessUpdateRequest;
 import com.shopwise.models.User;
 
@@ -17,4 +18,15 @@ public interface BusinessService {
     BusinessDto updateBusiness(UUID businessId, BusinessUpdateRequest updates, User requester);
     List<User> listCollaborators(UUID businessId, User requester);
     void removeCollaborator(UUID businessId, UUID userId, User requester);
+    
+    /**
+     * Deletes a business if the requester is the owner and password verification succeeds
+     * 
+     * @param businessId The ID of the business to delete
+     * @param deleteRequest The deletion request containing password for verification
+     * @param requester The user requesting the deletion
+     * @return A message confirming the deletion
+     * @throws BusinessException if the requester is not the owner or password verification fails
+     */
+    String deleteBusiness(UUID businessId, BusinessDeleteRequest deleteRequest, User requester);
 }

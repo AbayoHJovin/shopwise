@@ -2,12 +2,14 @@ package com.shopwise.controllers;
 
 import com.shopwise.Dto.BusinessDto;
 import com.shopwise.Dto.Request.CreateBusinessRequest;
+import com.shopwise.Dto.business.BusinessDeleteRequest;
 import com.shopwise.Dto.business.BusinessUpdateRequest;
 import com.shopwise.Services.business.BusinessException;
 import com.shopwise.Services.business.BusinessService;
 import com.shopwise.models.User;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -216,6 +218,67 @@ public class BusinessController {
             
             Map<String, String> response = new HashMap<>();
             response.put("message", "Collaborator removed successfully");
+            return ResponseEntity.ok(response);
+        } catch (BusinessException e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(e.getStatus()).body(errorResponse);
+        } catch (Exception e) {
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+    
+    /**
+     * Deletes a business if the requester is the owner and password verification succeeds
+     * The business ID is extracted from the "selectedBusiness" cookie
+     * 
+     * @param deleteRequest The deletion request containing password for verification
+     * @param httpRequest HTTP request containing cookies
+     * @param httpResponse HTTP response for clearing cookies after deletion
+     * @param authentication Authentication object with user details
+     * @return A message confirming the deletion
+     */
+    @DeleteMapping("/delete")
+    public ResponseEntity<?> deleteBusiness(
+            @Valid @RequestBody BusinessDeleteRequest deleteRequest,
+            HttpServletRequest httpRequest,
+            HttpServletResponse httpResponse,
+            Authentication authentication) {
+        try {
+            // Extract business ID from cookies
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+            
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "No business selected. Please select a business first.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+            
+            UUID businessId = UUID.fromString(businessIdStr);
+            User currentUser = (User) authentication.getPrincipal();
+            
+            // Call the service to delete the business
+            String result = businessService.deleteBusiness(businessId, deleteRequest, currentUser);
+            
+            // Clear the selectedBusiness cookie since the business has been deleted
+            Cookie cookie = new Cookie("selectedBusiness", null);
+            cookie.setPath("/");
+            cookie.setMaxAge(0); // Expire immediately
+            httpResponse.addCookie(cookie);
+            
+            Map<String, String> response = new HashMap<>();
+            response.put("message", result);
             return ResponseEntity.ok(response);
         } catch (BusinessException e) {
             Map<String, String> errorResponse = new HashMap<>();

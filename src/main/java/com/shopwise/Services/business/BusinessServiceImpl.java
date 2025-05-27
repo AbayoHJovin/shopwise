@@ -3,10 +3,12 @@ package com.shopwise.Services.business;
 import com.shopwise.Dto.BusinessDto;
 import com.shopwise.Dto.LocationDto;
 import com.shopwise.Dto.Request.CreateBusinessRequest;
+import com.shopwise.Dto.business.BusinessDeleteRequest;
 import com.shopwise.Dto.business.BusinessUpdateRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.CollaborationRequestRepository;
 import com.shopwise.Repository.UserRepository;
+import com.shopwise.Services.UserService;
 import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.models.Business;
 import com.shopwise.models.CollaborationRequest;
@@ -14,6 +16,7 @@ import com.shopwise.models.Location;
 import com.shopwise.models.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,6 +34,8 @@ public class BusinessServiceImpl implements BusinessService {
     private final UserRepository userRepository;
     private final CollaborationRequestRepository collaborationRequestRepository;
     private final DailySummaryService dailySummaryService;
+    private final UserService userService;
+    private final PasswordEncoder passwordEncoder;
     
     private static final int TOKEN_EXPIRY_DAYS = 7;
 
@@ -288,6 +293,25 @@ public class BusinessServiceImpl implements BusinessService {
         return business;
     }
     
+    /**
+     * Checks if the user is the owner of the business
+     * The owner is defined as the first collaborator added to the business
+     * 
+     * @param business The business to check ownership for
+     * @param user The user to check if they are the owner
+     * @return true if the user is the owner, false otherwise
+     */
+    private boolean isBusinessOwner(Business business, User user) {
+        if (business.getCollaborators() == null || business.getCollaborators().isEmpty()) {
+            return false;
+        }
+        
+        // The owner is the first collaborator in the list
+        // This assumes the first collaborator added is the owner
+        User owner = business.getCollaborators().get(0);
+        return owner.getId().equals(user.getId());
+    }
+    
     private BusinessDto mapToDto(Business business) {
         // Convert Location entity to LocationDto
         LocationDto locationDto = null;
@@ -319,5 +343,42 @@ public class BusinessServiceImpl implements BusinessService {
     
     private String generateUniqueToken() {
         return UUID.randomUUID().toString();
+    }
+    
+    @Override
+    @Transactional
+    public String deleteBusiness(UUID businessId, BusinessDeleteRequest deleteRequest, User requester) {
+        // Find the business
+        Business business = businessRepository.findById(businessId)
+                .orElseThrow(() -> BusinessException.notFound("Business not found"));
+        
+        // Verify that the requester is the owner of the business
+        if (!isBusinessOwner(business, requester)) {
+            throw BusinessException.forbidden("Only the business owner can delete the business");
+        }
+        
+        // Verify the user's password
+        if (!passwordEncoder.matches(deleteRequest.getPassword(), requester.getPassword())) {
+            throw BusinessException.forbidden("Invalid password. Please enter your correct password to confirm deletion.");
+        }
+        
+        // Verify confirmation text if provided
+        if (deleteRequest.getConfirmationText() != null && !deleteRequest.getConfirmationText().isEmpty()) {
+            String expectedConfirmation = "DELETE " + business.getName();
+            if (!expectedConfirmation.equals(deleteRequest.getConfirmationText())) {
+                throw BusinessException.badRequest("Confirmation text does not match. Please type 'DELETE " + business.getName() + "' to confirm.");
+            }
+        }
+        
+        // Log the deletion action before deleting the business
+        String businessName = business.getName();
+        UUID ownerId = requester.getId();
+        String ownerEmail = requester.getEmail();
+        
+        // Perform the deletion
+        businessRepository.delete(business);
+        
+        // Return success message
+        return "Business '" + businessName + "' has been permanently deleted.";
     }
 }
