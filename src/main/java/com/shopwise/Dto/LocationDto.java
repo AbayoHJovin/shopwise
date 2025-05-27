@@ -8,9 +8,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * DTO for Location information with validation
- */
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -32,7 +30,6 @@ public class LocationDto {
     @Size(max = 100, message = "Village name must not exceed 100 characters")
     private String village;
     
-    // Optional geographic coordinates with validation
     @DecimalMin(value = "-90.0", message = "Latitude must be greater than or equal to -90")
     @DecimalMax(value = "90.0", message = "Latitude must be less than or equal to 90")
     private Double latitude;
