@@ -27,14 +27,28 @@ public class ExpenseController {
 
     private final ExpenseService expenseService;
 
-    @PostMapping("/business/{businessId}")
-    public ResponseEntity<?> createExpense(@PathVariable UUID businessId,
-                                         @Valid @RequestBody ExpenseRequest request,
-                                         Authentication authentication) {
+    @PostMapping("/create")
+    public ResponseEntity<?> createExpense(@Valid @RequestBody ExpenseRequest request,
+                                         HttpServletRequest httpRequest) {
         try {
-            // Authentication is handled by Spring Security using JWT from HTTP-only cookies
-            // The user is automatically extracted from the token
-            
+            String businessIdStr = null;
+            Cookie[] cookies = httpRequest.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName())) {
+                        businessIdStr = cookie.getValue();
+                        break;
+                    }
+                }
+            }
+
+            if (businessIdStr == null || businessIdStr.isEmpty()) {
+                Map<String, String> errorResponse = new HashMap<>();
+                errorResponse.put("error", "No business selected. Please select a business first.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            }
+
+            UUID businessId = UUID.fromString(businessIdStr);
             ExpenseResponse createdExpense = expenseService.createExpense(businessId, request);
             return ResponseEntity.status(HttpStatus.CREATED).body(createdExpense);
         } catch (ExpenseException e) {

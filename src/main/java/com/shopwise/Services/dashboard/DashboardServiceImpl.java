@@ -262,6 +262,22 @@ public class DashboardServiceImpl implements DashboardService {
         
         // Get all expenses for the previous month
         LocalDateTime previousMonthStart = LocalDateTime.of(previousMonth.getYear(), previousMonth.getMonthValue(), 1, 0, 0);
+        LocalDateTime previousMonthEnd = previousMonthStart.plusMonths(1).minusNanos(1);
+        
+        List<Expense> previousMonthExpenses = expenseRepository.findByBusinessAndCreatedAtBetween(
+                business, previousMonthStart, previousMonthEnd);
+        
+        // Calculate total expenses for previous month
+        BigDecimal previousMonthExpensesTotal = calculateTotalExpenses(previousMonthExpenses);
+        
+        // Calculate percentage change
+        Double expenseChangePercentage = calculatePercentageChange(previousMonthExpensesTotal, totalExpenses);
+        
+        // Set values in the dashboard builder
+        dashboardBuilder
+                .totalExpenses(totalExpenses)
+                .previousMonthExpenses(previousMonthExpensesTotal)
+                .expenseChangePercentage(expenseChangePercentage);
     }
     
     /**
@@ -327,17 +343,22 @@ public class DashboardServiceImpl implements DashboardService {
     
     /**
      * Calculate total revenue from a list of sale records
+     * 
+     * @param saleRecords The list of sale records to calculate total revenue from
+     * @return The total revenue as a BigDecimal
      */
     private BigDecimal calculateTotalRevenue(List<SaleRecord> saleRecords) {
         BigDecimal totalRevenue = BigDecimal.ZERO;
         
-        if (saleRecords != null) {
-            for (SaleRecord saleRecord : saleRecords) {
-                Product product = saleRecord.getProduct();
+        if (saleRecords != null && !saleRecords.isEmpty()) {
+            for (SaleRecord sale : saleRecords) {
+                Product product = sale.getProduct();
                 if (product != null) {
-                    BigDecimal saleValue = BigDecimal.valueOf(product.getPricePerItem())
-                            .multiply(BigDecimal.valueOf(saleRecord.getTotalPiecesSold()));
-                    totalRevenue = totalRevenue.add(saleValue);
+                    // Calculate sale amount based on product price and quantity sold
+                    BigDecimal pricePerItem = BigDecimal.valueOf(product.getPricePerItem());
+                    BigDecimal quantity = BigDecimal.valueOf(sale.getTotalPiecesSold());
+                    BigDecimal saleAmount = pricePerItem.multiply(quantity);
+                    totalRevenue = totalRevenue.add(saleAmount);
                 }
             }
         }
@@ -346,14 +367,18 @@ public class DashboardServiceImpl implements DashboardService {
     }
     
     /**
-     * Calculate total expenses from a list of expenses
+     * Calculate total expenses from a list of expense records
+     * 
+     * @param expenses The list of expense records to calculate total expenses from
+     * @return The total expenses as a BigDecimal
      */
     private BigDecimal calculateTotalExpenses(List<Expense> expenses) {
         BigDecimal totalExpenses = BigDecimal.ZERO;
         
-        if (expenses != null) {
+        if (expenses != null && !expenses.isEmpty()) {
             for (Expense expense : expenses) {
-                totalExpenses = totalExpenses.add(BigDecimal.valueOf(expense.getAmount()));
+                BigDecimal expenseAmount = BigDecimal.valueOf(expense.getAmount());
+                totalExpenses = totalExpenses.add(expenseAmount);
             }
         }
         
@@ -362,13 +387,23 @@ public class DashboardServiceImpl implements DashboardService {
     
     /**
      * Calculate percentage change between two values
+     * 
+     * @param oldValue The previous value
+     * @param newValue The current value
+     * @return The percentage change as a Double
      */
     private Double calculatePercentageChange(BigDecimal oldValue, BigDecimal newValue) {
+        // If both values are zero, there's no change
+        if (oldValue.compareTo(BigDecimal.ZERO) == 0 && newValue.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        
+        // If old value is zero, the percentage increase is 100% if new value is positive
         if (oldValue.compareTo(BigDecimal.ZERO) == 0) {
-            // If old value is zero, return 100% increase if new value is positive
             return newValue.compareTo(BigDecimal.ZERO) > 0 ? 100.0 : 0.0;
         }
         
+        // Calculate percentage change
         return newValue.subtract(oldValue)
                 .divide(oldValue, 4, RoundingMode.HALF_UP)
                 .multiply(BigDecimal.valueOf(100))
