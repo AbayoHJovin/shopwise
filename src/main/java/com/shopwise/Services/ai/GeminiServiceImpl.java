@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.github.cdimascio.dotenv.Dotenv;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -26,9 +27,8 @@ public class GeminiServiceImpl implements GeminiService {
 
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
-    
-    @Value("${gemini.api.key}")
-    private String apiKey;
+    Dotenv dotenv = Dotenv.configure().load();
+    private final String apiKey;
     
     @Value("${gemini.model.name:gemini-2.0-flash}")
     private String modelName;
@@ -38,6 +38,8 @@ public class GeminiServiceImpl implements GeminiService {
     public GeminiServiceImpl() {
         this.restTemplate = new RestTemplate();
         this.objectMapper = new ObjectMapper();
+        Dotenv dotenv = Dotenv.configure().load();
+        this.apiKey = dotenv.get("GEMINI_API_KEY");
     }
 
     /**
@@ -61,7 +63,14 @@ public class GeminiServiceImpl implements GeminiService {
             
             // Build request body
             ObjectNode requestBody = objectMapper.createObjectNode();
+            
+            // Add system instructions
+            addSystemInstructions(requestBody);
+            
             ArrayNode contents = requestBody.putArray("contents");
+            
+            // Add system context as the first message
+            addModelMessage(contents, getShopWiseSystemContext());
             
             // Add conversation history if available
             if (conversationHistory != null && !conversationHistory.isEmpty()) {
@@ -126,6 +135,9 @@ public class GeminiServiceImpl implements GeminiService {
             // Build request body
             ObjectNode requestBody = objectMapper.createObjectNode();
             
+            // Add system instructions
+            addSystemInstructions(requestBody);
+            
             // Add generation config if provided
             if (parameters != null && parameters.containsKey("temperature")) {
                 ObjectNode generationConfig = requestBody.putObject("generationConfig");
@@ -136,6 +148,9 @@ public class GeminiServiceImpl implements GeminiService {
             }
             
             ArrayNode contents = requestBody.putArray("contents");
+            
+            // Add system context as the first message
+            addModelMessage(contents, getShopWiseSystemContext());
             
             // Add conversation history if available
             if (conversationHistory != null && !conversationHistory.isEmpty()) {
@@ -265,5 +280,57 @@ public class GeminiServiceImpl implements GeminiService {
             log.error("Error extracting response text", e);
             return "I'm sorry, I encountered an error processing the response.";
         }
+    }
+    
+    /**
+     * Add system instructions to the request body
+     * 
+     * @param requestBody The request body to add system instructions to
+     */
+    private void addSystemInstructions(ObjectNode requestBody) {
+        ObjectNode systemInstructions = requestBody.putObject("systemInstruction");
+        ArrayNode parts = systemInstructions.putArray("parts");
+        ObjectNode part = parts.addObject();
+        part.put("text", getSystemInstructionsText());
+    }
+    
+    /**
+     * Get the system instructions text
+     * 
+     * @return The system instructions text
+     */
+    private String getSystemInstructionsText() {
+        return "You are ShopWiseAI, a helpful AI assistant for the ShopWise business management application. " +
+               "ShopWise helps small business owners manage their inventory, sales, employees, and expenses. " +
+               "Your role is to assist users with analyzing their business data, providing insights, and answering questions about their business. " +
+               "You should be professional, helpful, and concise in your responses. " +
+               "When users ask about their business data, provide specific insights based on the context provided. " +
+               "If you don't have enough information, ask clarifying questions or suggest what data might be helpful. " +
+               "Always maintain a friendly, supportive tone and focus on providing actionable business insights.";
+    }
+    
+    /**
+     * Get the ShopWise system context
+     * 
+     * @return The ShopWise system context
+     */
+    private String getShopWiseSystemContext() {
+        return "I am ShopWiseAI, an AI assistant integrated into the ShopWise business management application. " +
+               "ShopWise is a comprehensive platform designed to help small business owners manage their operations efficiently. " +
+               "The application includes the following key features:\n" +
+               "1. Inventory Management: Track products, stock levels, and pricing\n" +
+               "2. Sales Tracking: Record and analyze sales data\n" +
+               "3. Employee Management: Manage staff information and schedules\n" +
+               "4. Expense Tracking: Monitor and categorize business expenses\n" +
+               "5. Business Analytics: View dashboards with key performance metrics\n\n" +
+               "I can help users by:\n" +
+               "- Analyzing sales trends and patterns\n" +
+               "- Identifying top-selling products\n" +
+               "- Monitoring inventory levels and suggesting restocking\n" +
+               "- Tracking employee performance\n" +
+               "- Analyzing expense categories and suggesting cost-saving opportunities\n" +
+               "- Providing daily summaries of business activities\n" +
+               "- Answering questions about the business data\n\n" +
+               "When responding to user queries, I'll incorporate relevant business data from the context provided.";
     }
 }

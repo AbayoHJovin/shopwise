@@ -1,5 +1,6 @@
 package com.shopwise.Services.ai;
 
+import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.ai.AiResponseRepository;
 import com.shopwise.Repository.ai.ConversationRepository;
 import com.shopwise.Repository.ai.UserMessageRepository;
@@ -29,10 +30,11 @@ public class GeminiChatServiceImpl implements GeminiChatService {
     private final AiResponseRepository aiResponseRepository;
     private final GeminiService geminiService;
     private final BusinessContextService businessContextService;
+    private final BusinessRepository businessRepository;
     
-    // Pattern to detect business data requests
+    // Pattern to detect business data requests - expanded to catch more queries
     private static final Pattern BUSINESS_DATA_PATTERN = Pattern.compile(
-            "(?i).*(analyze|show|get|provide|display|tell me about|what are)\\s+.*\\b(products|sales|revenue|expenses|dashboard|employees|inventory|business|analytics|statistics|metrics|performance|profit|loss)\\b.*");
+            "(?i).*(analyze|show|get|provide|display|tell me|what|how|which|where|when|why|can you|could you|would you|do i|does|is|are|have|has|many|much|overview|summary|report|list|count|total|number|amount|value|status|health|check|give me|help me|find|search|look|track|monitor|review|compare|calculate|estimate|predict|forecast|recommend|suggest)\\s+.*\\b(products?|sales?|revenue|expenses?|dashboard|employees?|inventory|business|analytics|statistics|metrics|performance|profit|loss|stock|items?|goods|merchandise|staff|team|personnel|money|income|earnings|costs?|spending|finances?|financial|data|information|records?|transactions?|customers?|clients?|suppliers?|vendors?|orders?|purchases?|returns?|refunds?|discounts?|promotions?|marketing|advertising|campaigns?|budget|cash|flow|balance|sheet|statement|account|accounting|tax|taxes|salary|salaries|wage|wages|payroll|payment|payments|invoice|invoices|receipt|receipts|bill|bills|debt|debts|credit|loan|loans|asset|assets|liability|liabilities|equity|capital|investment|investments|shareholder|shareholders|partner|partners|owner|owners|manager|managers|management|director|directors|board|ceo|cfo|coo|president|vice|executive|chief|officer|department|departments|division|divisions|branch|branches|store|stores|shop|shops|outlet|outlets|location|locations|region|regions|territory|territories|market|markets|segment|segments|sector|sectors|industry|industries|competition|competitors?|rival|rivals|peer|peers|benchmark|benchmarks|standard|standards|goal|goals|target|targets|objective|objectives|strategy|strategies|plan|plans|planning|forecast|forecasts|projection|projections|trend|trends|growth|decline|increase|decrease|rise|fall|up|down|high|low|best|worst|top|bottom|average|mean|median|mode|range|variance|deviation|correlation|regression|analysis|report|reports|chart|charts|graph|graphs|table|tables|spreadsheet|spreadsheets|database|databases|query|queries|filter|filters|sort|sorts|group|groups|aggregate|aggregates|sum|count|average|min|max|first|last|rank|ranks|rating|ratings|score|scores|grade|grades|tier|tiers|level|levels|category|categories|class|classes|type|types|kind|kinds|brand|brands|make|makes|model|models|series|version|versions|edition|editions|release|releases|update|updates|upgrade|upgrades|feature|features|function|functions|capability|capabilities|capacity|capacities|limit|limits|threshold|thresholds|boundary|boundaries|constraint|constraints|requirement|requirements|specification|specifications|detail|details|attribute|attributes|property|properties|characteristic|characteristics|quality|qualities|quantity|quantities|dimension|dimensions|size|sizes|weight|weights|height|heights|width|widths|depth|depths|length|lengths|area|areas|volume|volumes|space|spaces|distance|distances|location|locations|position|positions|coordinate|coordinates|address|addresses|zip|postal|code|codes|city|cities|state|states|province|provinces|country|countries|region|regions|zone|zones|district|districts|territory|territories|area|areas|locale|locales|place|places|site|sites|venue|venues|facility|facilities|building|buildings|structure|structures|premise|premises|property|properties|real|estate|land|plot|plots|lot|lots|parcel|parcels|acre|acres|hectare|hectares|square|footage|meter|meters|foot|feet|inch|inches|centimeter|centimeters|millimeter|millimeters|kilometer|kilometers|mile|miles|yard|yards)\\b.*");
     
     // Pattern to extract business ID from message
     private static final Pattern BUSINESS_ID_PATTERN = Pattern.compile(
@@ -49,6 +51,12 @@ public class GeminiChatServiceImpl implements GeminiChatService {
     @Override
     @Transactional
     public AiResponse sendMessage(String message, UUID conversationId, User user) {
+        return sendMessage(message, conversationId, user, null);
+    }
+    
+    @Override
+    @Transactional
+    public AiResponse sendMessage(String message, UUID conversationId, User user, UUID providedBusinessId) {
         // Get or create conversation
         Conversation conversation;
         if (conversationId != null) {
@@ -82,36 +90,81 @@ public class GeminiChatServiceImpl implements GeminiChatService {
         // Build conversation history for context
         String conversationHistory = buildConversationHistory(conversation);
         
-        // Check if this is a business data request and enhance with business context if needed
+        // Always include business context for all queries to make responses more relevant
         String enhancedMessage = message;
         Map<String, Object> parameters = new HashMap<>();
         
-        if (isBusinessDataRequest(message)) {
-            // Try to extract business ID from message
-            UUID businessId = extractBusinessId(message);
-            
-            // If no business ID in message, try to find one from conversation metadata
-            if (businessId == null) {
-                businessId = getBusinessIdFromConversation(conversation);
+        // First, use the provided business ID from cookies if available
+        UUID businessId = providedBusinessId;
+        
+        // If no business ID provided, try to extract from message
+        if (businessId == null) {
+            businessId = extractBusinessId(message);
+        }
+        
+        // If still no business ID, try to find one from conversation metadata
+        if (businessId == null) {
+            businessId = getBusinessIdFromConversation(conversation);
+        }
+        
+        // If still no business ID, check if there's a business cookie in the conversation metadata
+        if (businessId == null && conversation.getMetadata() != null && conversation.getMetadata().contains("selectedBusiness=")) {
+            try {
+                String metadata = conversation.getMetadata();
+                int startIndex = metadata.indexOf("selectedBusiness=") + 17;
+                int endIndex = metadata.indexOf(",", startIndex);
+                if (endIndex == -1) endIndex = metadata.length();
+                
+                String businessIdStr = metadata.substring(startIndex, endIndex);
+                businessId = UUID.fromString(businessIdStr);
+            } catch (Exception e) {
+                log.warn("Could not extract business ID from conversation metadata", e);
             }
-            
-            // If we have a business ID, get business context
-            if (businessId != null) {
-                try {
-                    String businessContext = businessContextService.getBusinessContext(businessId, user);
-                    // Enhance the message with business context
-                    enhancedMessage = "I need to analyze the following business data:\n\n" + 
-                                     businessContext + "\n\n" +
-                                     "Based on this information, please answer the following question: " + message;
-                    
-                    // Set temperature lower for analytical responses
-                    parameters.put("temperature", 0.3);
-                    parameters.put("topK", 20);
-                    parameters.put("maxOutputTokens", 1024);
-                } catch (Exception e) {
-                    log.error("Error getting business context", e);
+        }
+        
+        // As a last resort, try to get a business from the repository
+        if (businessId == null) {
+            try {
+                // Look for businesses associated with this user using the repository instead of the user object
+                List<Business> userBusinesses = businessRepository.findBusinessesByCollaborator(user);
+                if (userBusinesses != null && !userBusinesses.isEmpty()) {
+                    // Use the first business in the user's list
+                    businessId = userBusinesses.get(0).getId();
+                    log.info("Using first business from user's businesses: {}", businessId);
                 }
+            } catch (Exception e) {
+                log.warn("Could not get businesses for user", e);
             }
+        }
+        
+        // If we have a business ID, get business context
+        if (businessId != null) {
+            try {
+                String businessContext = businessContextService.getBusinessContext(businessId, user);
+                
+                // Always enhance the message with business context
+                enhancedMessage = "I need to analyze the following business data:\n\n" + 
+                                 businessContext + "\n\n" +
+                                 "Based on this information, please answer the following question: " + message;
+                
+                // Update the conversation title to include business reference if it's a new conversation
+                if (conversation.getUserMessages().size() <= 1 && !conversation.getTitle().contains("[Business:")) {
+                    Business business = businessRepository.findById(businessId).orElse(null);
+                    if (business != null) {
+                        conversation.setTitle(conversation.getTitle() + " [Business: " + business.getName() + "]");
+                        conversationRepository.save(conversation);
+                    }
+                }
+                
+                // Set temperature lower for analytical responses
+                parameters.put("temperature", 0.3);
+                parameters.put("topK", 20);
+                parameters.put("maxOutputTokens", 1024);
+            } catch (Exception e) {
+                log.error("Error getting business context", e);
+            }
+        } else {
+            log.warn("No business ID found for context enhancement. Using generic response.");
         }
         
         // Get AI response with metadata
@@ -395,12 +448,27 @@ public class GeminiChatServiceImpl implements GeminiChatService {
     }
     
     /**
-     * Get business ID from conversation metadata or previous messages
+     * Get business ID from conversation title or previous messages
      * 
      * @param conversation The conversation to extract from
      * @return The business ID, or null if none found
      */
     private UUID getBusinessIdFromConversation(Conversation conversation) {
+        // Check if the conversation title contains a business name
+        String title = conversation.getTitle();
+        if (title != null && title.contains("[Business: ")) {
+            int startIndex = title.indexOf("[Business: ") + 11;
+            int endIndex = title.indexOf("]", startIndex);
+            if (endIndex > startIndex) {
+                String businessName = title.substring(startIndex, endIndex);
+                // Look up the business by name
+                List<Business> businesses = businessRepository.findByName(businessName);
+                if (!businesses.isEmpty()) {
+                    return businesses.get(0).getId();
+                }
+            }
+        }
+        
         // Check previous messages for business ID mentions
         List<UserMessage> userMessages = userMessageRepository.findByConversationOrderBySequenceOrderAsc(conversation);
         

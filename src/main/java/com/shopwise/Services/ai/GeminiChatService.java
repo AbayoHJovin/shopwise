@@ -25,6 +25,17 @@ public interface GeminiChatService {
     AiResponse sendMessage(String message, UUID conversationId, User user);
     
     /**
+     * Send a message to the AI and get a response with specific business context
+     * 
+     * @param message The message text
+     * @param conversationId The ID of the conversation (optional, if null a new conversation will be created)
+     * @param user The user sending the message
+     * @param businessId The ID of the business to provide context for (optional)
+     * @return The AI's response
+     */
+    AiResponse sendMessage(String message, UUID conversationId, User user, UUID businessId);
+    
+    /**
      * Create a new conversation
      * 
      * @param title The title of the conversation

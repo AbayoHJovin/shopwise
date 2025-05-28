@@ -48,6 +48,9 @@ public class Conversation {
     @Enumerated(EnumType.STRING)
     private ConversationStatus status = ConversationStatus.ACTIVE;
     
+    @Column(length = 2000)
+    private String metadata;
+    
     // Helper methods to maintain bidirectional relationship
     public void addUserMessage(UserMessage message) {
         userMessages.add(message);

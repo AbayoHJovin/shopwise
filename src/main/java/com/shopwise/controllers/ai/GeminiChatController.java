@@ -1,6 +1,7 @@
 package com.shopwise.controllers.ai;
 
 import com.shopwise.Dto.ApiResponse;
+import com.shopwise.Dto.ai.ConversationListItemDto;
 import com.shopwise.Services.UserService;
 import com.shopwise.Services.ai.AIAnalyticsService;
 import com.shopwise.Services.ai.GeminiChatService;
@@ -42,7 +43,7 @@ public class GeminiChatController {
      * @return The AI's response
      */
     @PostMapping("/chat")
-    public ResponseEntity<?> sendMessage(@RequestBody Map<String, Object> requestBody, Authentication authentication) {
+    public ResponseEntity<?> sendMessage(@RequestBody Map<String, Object> requestBody, Authentication authentication, HttpServletRequest request) {
         try {
             // Get the authenticated user
             User currentUser = (User) authentication.getPrincipal();
@@ -53,7 +54,6 @@ public class GeminiChatController {
                 return ResponseEntity.badRequest().body(new ApiResponse(false, "Message cannot be empty"));
             }
             
-            // Extract conversation ID if provided
             UUID conversationId = null;
             if (requestBody.containsKey("conversationId") && requestBody.get("conversationId") != null) {
                 try {
@@ -63,8 +63,25 @@ public class GeminiChatController {
                 }
             }
             
-            // Send message to AI
-            AiResponse aiResponse = geminiChatService.sendMessage(message, conversationId, currentUser);
+            // Extract selected business ID from cookies if available
+            UUID selectedBusinessId = null;
+            Cookie[] cookies = request.getCookies();
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    if ("selectedBusiness".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isEmpty()) {
+                        try {
+                            selectedBusinessId = UUID.fromString(cookie.getValue());
+                            log.debug("Found selected business ID in cookie: {}", selectedBusinessId);
+                            break;
+                        } catch (IllegalArgumentException e) {
+                            log.warn("Invalid business ID in cookie: {}", cookie.getValue());
+                        }
+                    }
+                }
+            }
+            
+            // Send message to AI with business context
+            AiResponse aiResponse = geminiChatService.sendMessage(message, conversationId, currentUser, selectedBusinessId);
             
             // Build response
             Map<String, Object> response = new HashMap<>();
@@ -139,6 +156,40 @@ public class GeminiChatController {
             log.error("Error retrieving user conversations", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(new ApiResponse(false, "An error occurred while retrieving conversations"));
+        }
+    }
+    
+    /**
+     * Get a lightweight list of conversations for the authenticated user
+     * This endpoint returns only the essential information needed for sidebar display
+     *
+     * @param authentication The authenticated user
+     * @return List of conversation items with only ID, title, and timestamps
+     */
+    @GetMapping("/conversations/sidebar")
+    public ResponseEntity<?> getConversationSidebarList(Authentication authentication) {
+        try {
+            // Get the authenticated user
+            User currentUser = (User) authentication.getPrincipal();
+            
+            // Get user conversations
+            List<Conversation> conversations = geminiChatService.getUserConversations(currentUser);
+            
+            // Convert to lightweight DTOs
+            List<ConversationListItemDto> conversationItems = conversations.stream()
+                .map(conversation -> ConversationListItemDto.builder()
+                    .id(conversation.getId())
+                    .title(conversation.getTitle())
+                    .createdAt(conversation.getCreatedAt())
+                    .updatedAt(conversation.getUpdatedAt())
+                    .build())
+                .toList();
+            
+            return ResponseEntity.ok(conversationItems);
+        } catch (Exception e) {
+            log.error("Error retrieving conversation sidebar list", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(new ApiResponse(false, "An error occurred while retrieving the conversation list"));
         }
     }
 
