@@ -106,13 +106,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         // Track if any changes were made
         boolean changesApplied = false;
-        StringBuilder changeLog = new StringBuilder("Updated fields: ");
-        
         // Update fields if provided
         if (request.getName() != null && !request.getName().isBlank()) {
             String oldName = employee.getName();
             employee.setName(request.getName());
-            changeLog.append("name (from '").append(oldName).append("' to '").append(request.getName()).append("'), ");
             changesApplied = true;
         }
         
@@ -124,34 +121,29 @@ public class EmployeeServiceImpl implements EmployeeService {
             }
             String oldEmail = employee.getEmail();
             employee.setEmail(request.getEmail());
-            changeLog.append("email (from '").append(oldEmail).append("' to '").append(request.getEmail()).append("'), ");
             changesApplied = true;
         }
         if (request.getSalary() != null) {
             double oldSalary = employee.getSalary();
             employee.setSalary(request.getSalary());
-            changeLog.append("salary (from $").append(oldSalary).append(" to $").append(request.getSalary()).append("), ");
             changesApplied = true;
         }
         
         if (request.getIsDisabled() != null) {
             boolean oldStatus = employee.isDisabled();
             employee.setDisabled(request.getIsDisabled());
-            changeLog.append("disabled status (from ").append(oldStatus).append(" to ").append(request.getIsDisabled()).append("), ");
             changesApplied = true;
         }
         
         if (request.getIsCollaborator() != null) {
             boolean oldCollaborator = employee.isCollaborator();
             employee.setCollaborator(request.getIsCollaborator());
-            changeLog.append("collaborator status (from ").append(oldCollaborator).append(" to ").append(request.getIsCollaborator()).append("), ");
             changesApplied = true;
         }
         
         if (request.getRole() != null) {
             Role oldRole = employee.getRole();
             employee.setRole(request.getRole());
-            changeLog.append("role (from ").append(oldRole != null ? oldRole.name() : "null").append(" to ").append(request.getRole().name()).append("), ");
             changesApplied = true;
         }
         
@@ -162,16 +154,10 @@ public class EmployeeServiceImpl implements EmployeeService {
         
         // Save updated employee
         Employee updatedEmployee = employeeRepository.save(employee);
-        
-        // Format the change log for better readability
-        String logMessage = changeLog.toString();
-        if (logMessage.endsWith(", ")) {
-            logMessage = logMessage.substring(0, logMessage.length() - 2);
-        }
-        
+
         // Log the employee update in daily summary
         dailySummaryService.logDailyAction(updatedEmployee.getBusiness().getId(), 
-                "Employee " + updatedEmployee.getName() + " (" + updatedEmployee.getEmail() + ") was updated: " + logMessage);
+                "Employee " + updatedEmployee.getName() + " (" + updatedEmployee.getEmail() + ") was updated");
         
         // Return response
         return mapToEmployeeResponse(updatedEmployee);

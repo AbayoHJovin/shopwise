@@ -26,6 +26,9 @@ public class User {
     private UserRoles role = UserRoles.USER;
     @ManyToMany(mappedBy = "collaborators")
     private List<Business> businesses;
+    
+    @Embedded
+    private SubscriptionInfo subscriptionInfo = new SubscriptionInfo();
 
     public User(UUID id, String name, String phone, String email, String password) {
         this.id = id;
@@ -33,6 +36,7 @@ public class User {
         this.phone = phone;
         this.email = email;
         this.password = password;
+        this.subscriptionInfo = new SubscriptionInfo();
     }
 
     public enum UserRoles{
