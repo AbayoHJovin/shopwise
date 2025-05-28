@@ -40,9 +40,6 @@ public class ManualPaymentController {
     
     private static final String UPLOAD_DIR = "payment-screenshots";
     
-    /**
-     * Create a new payment request with screenshot upload
-     */
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> createPaymentRequest(
             @RequestPart("screenshot") MultipartFile screenshot,

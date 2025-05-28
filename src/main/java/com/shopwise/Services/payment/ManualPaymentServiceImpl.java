@@ -46,7 +46,6 @@ public class ManualPaymentServiceImpl implements ManualPaymentService {
             throw PaymentException.badRequest("Payment screenshot is required");
         }
         
-        // Create new payment request
         ManualPaymentRequest paymentRequest = new ManualPaymentRequest();
         paymentRequest.setSenderName(requestDto.getSenderName());
         paymentRequest.setAmountPaid(requestDto.getAmountPaid());
@@ -61,10 +60,7 @@ public class ManualPaymentServiceImpl implements ManualPaymentService {
         
         // Send notification email to admin
         emailService.sendPaymentRequestNotification(savedRequest);
-        
-        // Log in daily summary
         try {
-            // Get the first business from the user's businesses (if any)
             if (currentUser.getBusinesses() != null && !currentUser.getBusinesses().isEmpty()) {
                 UUID businessId = currentUser.getBusinesses().get(0).getId();
                 String planName = requestDto.getSubscriptionPlan().toString().replace("_", " ");
