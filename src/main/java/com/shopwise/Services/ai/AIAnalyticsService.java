@@ -67,7 +67,6 @@ public class AIAnalyticsService {
             StringBuilder prompt = new StringBuilder();
             prompt.append("I need a concise daily summary for a business based on the following data:\n\n");
             
-            // Add today's sales
             prompt.append("TODAY'S SALES (").append(todaySales.size()).append(" sales):\n");
             if (!todaySales.isEmpty()) {
                 for (SaleRecord sale : todaySales) {
