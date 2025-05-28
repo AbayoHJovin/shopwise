@@ -163,12 +163,45 @@ public class EmployeeController {
         }
     }
 
+    /**
+     * Update an employee's information
+     * 
+     * @param employeeId ID of the employee to update
+     * @param request The update request containing the fields to update
+     * @param httpRequest HTTP request to extract the business cookie
+     * @param authentication The authentication object containing user details
+     * @return The updated employee details
+     */
     @PutMapping("/{employeeId}")
     public ResponseEntity<?> updateEmployee(@PathVariable UUID employeeId,
                                            @Valid @RequestBody EmployeeUpdateRequest request,
+                                           HttpServletRequest httpRequest,
                                            Authentication authentication) {
         try {
-            EmployeeResponse updatedEmployee = employeeService.updateEmployee(employeeId, request);
+            // Extract user from authentication
+            if (authentication == null || !authentication.isAuthenticated()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "User not authenticated"));
+            }
+            
+            User currentUser = (User) authentication.getPrincipal();
+            
+            // Find the employee to get their business ID
+            UUID businessId = employeeService.getEmployeeBusinessId(employeeId);
+            if (businessId == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("error", "Employee not found or has no associated business"));
+            }
+            
+            // Verify that the user is the owner of the business
+            boolean isOwner = employeeService.isUserBusinessOwner(businessId, currentUser.getId());
+            if (!isOwner) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Only the business owner can update employee information"));
+            }
+            
+            // Update the employee
+            EmployeeResponse updatedEmployee = employeeService.updateEmployee(employeeId, request, currentUser);
             return ResponseEntity.ok(updatedEmployee);
         } catch (EmployeeException e) {
             Map<String, String> errorResponse = new HashMap<>();

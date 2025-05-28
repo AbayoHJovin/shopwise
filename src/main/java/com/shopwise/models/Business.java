@@ -49,6 +49,10 @@ public class Business {
     @OneToMany(mappedBy = "business", cascade = CascadeType.ALL)
     private List<CollaborationRequest> collaborationRequests;
 
+    @ManyToOne
+    @JoinColumn(name = "owner_id")
+    private User owner;
+    
     @ManyToMany
     private List<User> collaborators;
     

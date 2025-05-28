@@ -5,6 +5,7 @@ import com.shopwise.Dto.employee.EmployeeRequest;
 import com.shopwise.Dto.employee.EmployeeResponse;
 import com.shopwise.Dto.employee.EmployeeUpdateRequest;
 import com.shopwise.enums.Role;
+import com.shopwise.models.User;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,8 +28,34 @@ public interface EmployeeService {
      * @param employeeId UUID of the employee to update
      * @param request Updated employee details
      * @return Updated EmployeeResponse
+     * @deprecated Use updateEmployee(UUID, EmployeeUpdateRequest, User) instead
      */
+    @Deprecated
     EmployeeResponse updateEmployee(UUID employeeId, EmployeeUpdateRequest request);
+    
+    /**
+     * Updates an existing employee's information with user authentication.
+     * @param employeeId UUID of the employee to update
+     * @param request Updated employee details
+     * @param currentUser The user performing the update
+     * @return Updated EmployeeResponse
+     */
+    EmployeeResponse updateEmployee(UUID employeeId, EmployeeUpdateRequest request, User currentUser);
+    
+    /**
+     * Gets the business ID associated with an employee.
+     * @param employeeId UUID of the employee
+     * @return UUID of the business, or null if not found
+     */
+    UUID getEmployeeBusinessId(UUID employeeId);
+    
+    /**
+     * Checks if a user is the owner of a business.
+     * @param businessId UUID of the business
+     * @param userId UUID of the user
+     * @return true if the user is the owner, false otherwise
+     */
+    boolean isUserBusinessOwner(UUID businessId, UUID userId);
 
     /**
      * Disables an employee (soft delete).

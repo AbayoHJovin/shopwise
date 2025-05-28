@@ -1,6 +1,9 @@
 package com.shopwise.enums;
 
 public enum Role {
-    OWNER,
-    MANAGER
+    MANAGER,
+    CASHIER,
+    SALES_ASSOCIATE,
+    INVENTORY_CLERK,
+    NORMAL
 }

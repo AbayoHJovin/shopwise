@@ -19,6 +19,8 @@ public class DailySummary {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
 
+    @Lob
+    @Column(columnDefinition = "TEXT")
     private String description;
     private LocalDateTime timestamp;
 

@@ -7,11 +7,13 @@ import com.shopwise.Dto.employee.EmployeeUpdateRequest;
 import com.shopwise.Repository.BusinessRepository;
 import com.shopwise.Repository.CollaboratorTokenRepository;
 import com.shopwise.Repository.EmployeeRepository;
+import com.shopwise.Repository.UserRepository;
 import com.shopwise.Services.dailysummary.DailySummaryService;
 import com.shopwise.enums.Role;
 import com.shopwise.models.Business;
 import com.shopwise.models.CollaboratorToken;
 import com.shopwise.models.Employee;
+import com.shopwise.models.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -31,6 +33,7 @@ public class EmployeeServiceImpl implements EmployeeService {
     private final EmployeeRepository employeeRepository;
     private final BusinessRepository businessRepository;
     private final CollaboratorTokenRepository collaboratorTokenRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final DailySummaryService dailySummaryService;
     
@@ -75,13 +78,42 @@ public class EmployeeServiceImpl implements EmployeeService {
     @Override
     @Transactional
     public EmployeeResponse updateEmployee(UUID employeeId, EmployeeUpdateRequest request) {
+        // This is the deprecated method without user authentication
+        // Call the new method with null user (for backward compatibility)
+        return updateEmployee(employeeId, request, null);
+    }
+    
+    @Override
+    @Transactional
+    public EmployeeResponse updateEmployee(UUID employeeId, EmployeeUpdateRequest request, User currentUser) {
         // Find the employee
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> EmployeeException.notFound("Employee not found with ID: " + employeeId));
         
+        // Get the business
+        Business business = employee.getBusiness();
+        if (business == null) {
+            throw EmployeeException.badRequest("Employee is not associated with any business");
+        }
+        
+        // If currentUser is provided, verify they are the owner of the business
+        if (currentUser != null) {
+            boolean isOwner = isUserBusinessOwner(business.getId(), currentUser.getId());
+            if (!isOwner) {
+                throw EmployeeException.forbidden("Only the business owner can update employee information");
+            }
+        }
+        
+        // Track if any changes were made
+        boolean changesApplied = false;
+        StringBuilder changeLog = new StringBuilder("Updated fields: ");
+        
         // Update fields if provided
         if (request.getName() != null && !request.getName().isBlank()) {
+            String oldName = employee.getName();
             employee.setName(request.getName());
+            changeLog.append("name (from '").append(oldName).append("' to '").append(request.getName()).append("'), ");
+            changesApplied = true;
         }
         
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
@@ -90,30 +122,112 @@ public class EmployeeServiceImpl implements EmployeeService {
             if (existingEmployee != null && !existingEmployee.getId().equals(employeeId)) {
                 throw EmployeeException.conflict("Email " + request.getEmail() + " is already in use by another employee");
             }
+            String oldEmail = employee.getEmail();
             employee.setEmail(request.getEmail());
+            changeLog.append("email (from '").append(oldEmail).append("' to '").append(request.getEmail()).append("'), ");
+            changesApplied = true;
         }
-        
-        if (request.getPassword() != null && !request.getPassword().isBlank()) {
-            employee.setPassword(passwordEncoder.encode(request.getPassword()));
-        }
-        
         if (request.getSalary() != null) {
+            double oldSalary = employee.getSalary();
             employee.setSalary(request.getSalary());
+            changeLog.append("salary (from $").append(oldSalary).append(" to $").append(request.getSalary()).append("), ");
+            changesApplied = true;
+        }
+        
+        if (request.getIsDisabled() != null) {
+            boolean oldStatus = employee.isDisabled();
+            employee.setDisabled(request.getIsDisabled());
+            changeLog.append("disabled status (from ").append(oldStatus).append(" to ").append(request.getIsDisabled()).append("), ");
+            changesApplied = true;
         }
         
         if (request.getIsCollaborator() != null) {
+            boolean oldCollaborator = employee.isCollaborator();
             employee.setCollaborator(request.getIsCollaborator());
+            changeLog.append("collaborator status (from ").append(oldCollaborator).append(" to ").append(request.getIsCollaborator()).append("), ");
+            changesApplied = true;
+        }
+        
+        if (request.getRole() != null) {
+            Role oldRole = employee.getRole();
+            employee.setRole(request.getRole());
+            changeLog.append("role (from ").append(oldRole != null ? oldRole.name() : "null").append(" to ").append(request.getRole().name()).append("), ");
+            changesApplied = true;
+        }
+        
+        // If no changes were applied, return the existing employee
+        if (!changesApplied) {
+            return mapToEmployeeResponse(employee);
         }
         
         // Save updated employee
         Employee updatedEmployee = employeeRepository.save(employee);
         
+        // Format the change log for better readability
+        String logMessage = changeLog.toString();
+        if (logMessage.endsWith(", ")) {
+            logMessage = logMessage.substring(0, logMessage.length() - 2);
+        }
+        
         // Log the employee update in daily summary
         dailySummaryService.logDailyAction(updatedEmployee.getBusiness().getId(), 
-                "Employee " + updatedEmployee.getName() + " (" + updatedEmployee.getEmail() + ") was updated");
+                "Employee " + updatedEmployee.getName() + " (" + updatedEmployee.getEmail() + ") was updated: " + logMessage);
         
         // Return response
         return mapToEmployeeResponse(updatedEmployee);
+    }
+    
+    @Override
+    public UUID getEmployeeBusinessId(UUID employeeId) {
+        // Find the employee
+        Employee employee = employeeRepository.findById(employeeId).orElse(null);
+        if (employee == null || employee.getBusiness() == null) {
+            return null;
+        }
+        return employee.getBusiness().getId();
+    }
+    
+    @Override
+    public boolean isUserBusinessOwner(UUID businessId, UUID userId) {
+        // Find the business
+        Business business = businessRepository.findById(businessId).orElse(null);
+        if (business == null) {
+            return false;
+        }
+        
+        // Get the user
+        User user = null;
+        try {
+            user = userRepository.findById(userId).orElse(null);
+            if (user == null) {
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        
+        // Check if the user is the owner of the business
+        // The owner is defined as the first collaborator added to the business
+        return isBusinessOwner(business, user);
+    }
+    
+    /**
+     * Checks if the user is the owner of the business
+     * The owner is defined as the first collaborator added to the business
+     * 
+     * @param business The business to check ownership for
+     * @param user The user to check if they are the owner
+     * @return true if the user is the owner, false otherwise
+     */
+    private boolean isBusinessOwner(Business business, User user) {
+        if (business.getCollaborators() == null || business.getCollaborators().isEmpty()) {
+            return false;
+        }
+        
+        // The owner is the first collaborator in the list
+        // This assumes the first collaborator added is the owner
+        User owner = business.getCollaborators().get(0);
+        return owner.getId().equals(user.getId());
     }
 
     @Override
