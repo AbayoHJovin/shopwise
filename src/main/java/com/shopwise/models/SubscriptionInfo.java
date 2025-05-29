@@ -37,40 +37,26 @@ public class SubscriptionInfo {
      * @return true if the subscription is active, false otherwise
      */
     public boolean isActive(LocalDateTime currentTime) {
-        // Basic plan users get a 14-day free trial of premium features
-        if (plan == SubscriptionPlan.BASIC) {
-            if (finishedFreeTrial) {
-                return true; // Basic plan with finished trial
+        // For premium plans (PRO_WEEKLY, PRO_MONTHLY), check if subscription is active
+        if (plan != SubscriptionPlan.BASIC) {
+            if (subscribedAt == null) {
+                return false;
             }
             
-            // Check if free trial is still active
-            if (freeTrialStartedAt != null) {
-                LocalDateTime freeTrialEndDate = freeTrialStartedAt.plusDays(14);
-                if (currentTime.isAfter(freeTrialEndDate)) {
-                    // Free trial has expired
-                    finishedFreeTrial = true;
-                    return true; // Return to basic features
-                }
-                return true; // Free trial still active
+            LocalDateTime expirationDate;
+            if (plan == SubscriptionPlan.PRO_WEEKLY) {
+                expirationDate = subscribedAt.plusWeeks(1);
+            } else if (plan == SubscriptionPlan.PRO_MONTHLY) {
+                expirationDate = subscribedAt.plusMonths(1);
+            } else {
+                return false;
             }
-            return true; // Basic plan, trial not started yet
+            
+            return currentTime.isBefore(expirationDate);
         }
         
-        // Paid plans
-        if (subscribedAt == null) {
-            return false;
-        }
-        
-        LocalDateTime expirationDate;
-        if (plan == SubscriptionPlan.PRO_WEEKLY) {
-            expirationDate = subscribedAt.plusWeeks(1);
-        } else if (plan == SubscriptionPlan.PRO_MONTHLY) {
-            expirationDate = subscribedAt.plusMonths(1);
-        } else {
-            return false;
-        }
-        
-        return currentTime.isBefore(expirationDate);
+        // For basic plan, it's always active but not premium
+        return true;
     }
     
     /**

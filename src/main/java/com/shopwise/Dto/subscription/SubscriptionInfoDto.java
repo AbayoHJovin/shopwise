@@ -43,9 +43,50 @@ public class SubscriptionInfoDto {
                 .freeTrialStartedAt(subscriptionInfo.getFreeTrialStartedAt())
                 .subscribedAt(subscriptionInfo.getSubscribedAt())
                 .expirationDate(subscriptionInfo.getExpirationDate())
-                .isAllowedPremium(subscriptionInfo.isActive(now) || subscriptionInfo.isInFreeTrial(now))
+                .isAllowedPremium(isPremiumAllowed(subscriptionInfo, now))
                 .remainingDays(subscriptionInfo.getRemainingDays(now))
                 .isInFreeTrial(subscriptionInfo.isInFreeTrial(now))
                 .build();
+    }
+    
+    /**
+     * Determine if the user is allowed to access premium features
+     * 
+     * @param subscriptionInfo The subscription info
+     * @param currentTime The current time
+     * @return true if the user is allowed to access premium features
+     */
+    private static boolean isPremiumAllowed(SubscriptionInfo subscriptionInfo, LocalDateTime currentTime) {
+        // If no subscription info, no premium access
+        if (subscriptionInfo == null) {
+            return false;
+        }
+        
+        // Check if user is in free trial
+        if (subscriptionInfo.isInFreeTrial(currentTime)) {
+            return true;
+        }
+        
+        // Check if user has an active premium subscription
+        if (subscriptionInfo.getPlan() != SubscriptionPlan.BASIC) {
+            // For premium plans, check if subscription is still valid
+            if (subscriptionInfo.getSubscribedAt() == null) {
+                return false;
+            }
+            
+            LocalDateTime expirationDate;
+            if (subscriptionInfo.getPlan() == SubscriptionPlan.PRO_WEEKLY) {
+                expirationDate = subscriptionInfo.getSubscribedAt().plusWeeks(1);
+            } else if (subscriptionInfo.getPlan() == SubscriptionPlan.PRO_MONTHLY) {
+                expirationDate = subscriptionInfo.getSubscribedAt().plusMonths(1);
+            } else {
+                return false;
+            }
+            
+            return currentTime.isBefore(expirationDate);
+        }
+        
+        // Basic plan with no free trial or expired free trial
+        return false;
     }
 }
