@@ -149,15 +149,13 @@ public class ManualPaymentServiceImpl implements ManualPaymentService {
             updateUserSubscription(request);
         }
         
-        // Save updated request
+        // Save updated
         ManualPaymentRequest updatedRequest = paymentRequestRepository.save(request);
         
-        // Send notification email to user
         emailService.sendPaymentStatusUpdateNotification(updatedRequest);
         
         // Log in daily summary
         try {
-            // Get the first business from the user's businesses (if any)
             User user = request.getSubmittedBy();
             if (user.getBusinesses() != null && !user.getBusinesses().isEmpty()) {
                 UUID businessId = user.getBusinesses().get(0).getId();

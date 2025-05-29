@@ -1,5 +1,6 @@
 package com.shopwise.Dto;
 
+import com.shopwise.Dto.subscription.SubscriptionInfoDto;
 import com.shopwise.models.User;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,7 +22,8 @@ public class UserDto {
     private String phone;
     private String role;
     private List<UUID> businessIds;
-    
+    private SubscriptionInfoDto subscription;
+
     /**
      * Convert User entity to UserDto
      * 
@@ -40,6 +42,7 @@ public class UserDto {
                                 .map(business -> business.getId())
                                 .collect(Collectors.toList()) : 
                         null)
+                .subscription(SubscriptionInfoDto.fromEntity(user.getSubscriptionInfo()))
                 .build();
     }
 }

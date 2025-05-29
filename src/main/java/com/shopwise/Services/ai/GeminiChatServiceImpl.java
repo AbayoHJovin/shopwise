@@ -94,79 +94,36 @@ public class GeminiChatServiceImpl implements GeminiChatService {
         String enhancedMessage = message;
         Map<String, Object> parameters = new HashMap<>();
         
-        // First, use the provided business ID from cookies if available
-        UUID businessId = providedBusinessId;
-        
-        // If no business ID provided, try to extract from message
-        if (businessId == null) {
-            businessId = extractBusinessId(message);
+
+        if (providedBusinessId == null) {
+           throw new Error("No business selected!");
         }
-        
-        // If still no business ID, try to find one from conversation metadata
-        if (businessId == null) {
-            businessId = getBusinessIdFromConversation(conversation);
-        }
-        
-        // If still no business ID, check if there's a business cookie in the conversation metadata
-        if (businessId == null && conversation.getMetadata() != null && conversation.getMetadata().contains("selectedBusiness=")) {
-            try {
-                String metadata = conversation.getMetadata();
-                int startIndex = metadata.indexOf("selectedBusiness=") + 17;
-                int endIndex = metadata.indexOf(",", startIndex);
-                if (endIndex == -1) endIndex = metadata.length();
-                
-                String businessIdStr = metadata.substring(startIndex, endIndex);
-                businessId = UUID.fromString(businessIdStr);
-            } catch (Exception e) {
-                log.warn("Could not extract business ID from conversation metadata", e);
-            }
-        }
-        
-        // As a last resort, try to get a business from the repository
-        if (businessId == null) {
-            try {
-                // Look for businesses associated with this user using the repository instead of the user object
-                List<Business> userBusinesses = businessRepository.findBusinessesByCollaborator(user);
-                if (userBusinesses != null && !userBusinesses.isEmpty()) {
-                    // Use the first business in the user's list
-                    businessId = userBusinesses.get(0).getId();
-                    log.info("Using first business from user's businesses: {}", businessId);
+
+        try {
+            String businessContext = businessContextService.getBusinessContext(providedBusinessId, user);
+
+            // Always enhance the message with business context
+            enhancedMessage = "I need to analyze the following business data:\n\n" +
+                    businessContext + "\n\n" +
+                    "Based on this information, please answer the following question: " + message;
+
+            // Update the conversation title to include business reference if it's a new conversation
+            if (conversation.getUserMessages().size() <= 1 && !conversation.getTitle().contains("[Business:")) {
+                Business business = businessRepository.findById(providedBusinessId).orElse(null);
+                if (business != null) {
+                    conversation.setTitle(conversation.getTitle() + " [Business: " + business.getName() + "]");
+                    conversationRepository.save(conversation);
                 }
-            } catch (Exception e) {
-                log.warn("Could not get businesses for user", e);
             }
+
+            // Set temperature lower for analytical responses
+            parameters.put("temperature", 0.3);
+            parameters.put("topK", 20);
+            parameters.put("maxOutputTokens", 1024);
+        } catch (Exception e) {
+            log.error("Error getting business context", e);
         }
-        
-        // If we have a business ID, get business context
-        if (businessId != null) {
-            try {
-                String businessContext = businessContextService.getBusinessContext(businessId, user);
-                
-                // Always enhance the message with business context
-                enhancedMessage = "I need to analyze the following business data:\n\n" + 
-                                 businessContext + "\n\n" +
-                                 "Based on this information, please answer the following question: " + message;
-                
-                // Update the conversation title to include business reference if it's a new conversation
-                if (conversation.getUserMessages().size() <= 1 && !conversation.getTitle().contains("[Business:")) {
-                    Business business = businessRepository.findById(businessId).orElse(null);
-                    if (business != null) {
-                        conversation.setTitle(conversation.getTitle() + " [Business: " + business.getName() + "]");
-                        conversationRepository.save(conversation);
-                    }
-                }
-                
-                // Set temperature lower for analytical responses
-                parameters.put("temperature", 0.3);
-                parameters.put("topK", 20);
-                parameters.put("maxOutputTokens", 1024);
-            } catch (Exception e) {
-                log.error("Error getting business context", e);
-            }
-        } else {
-            log.warn("No business ID found for context enhancement. Using generic response.");
-        }
-        
+
         // Get AI response with metadata
         long startTime = System.currentTimeMillis();
         Map<String, Object> responseData = geminiService.generateResponseWithMetadata(

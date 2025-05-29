@@ -52,8 +52,7 @@ public class ManualPaymentController {
             
             // Process and save the screenshot
             String fileName = processScreenshotUpload(screenshot, currentUser.getId());
-            
-            // Create payment request
+
             ManualPaymentRequestDto createdRequest = paymentService.createPaymentRequest(requestDto, currentUser, fileName);
             
             return ResponseEntity.status(HttpStatus.CREATED).body(createdRequest);
