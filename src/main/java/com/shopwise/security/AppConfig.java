@@ -18,6 +18,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -76,7 +77,6 @@ public class AppConfig {
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
-                        .requestMatchers("/api/business/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/products/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/employees/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/expenses/**").hasAnyRole("USER", "ADMIN")
@@ -85,6 +85,8 @@ public class AppConfig {
                         .requestMatchers("/api/availability/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/product-images/**").hasAnyRole("USER", "ADMIN")
                         .requestMatchers("/api/collaborators/**").permitAll() // Allow access to confirm collaboration
+                        .requestMatchers("/api/businesses/discovery/**").permitAll()
+                        .requestMatchers(AntPathRequestMatcher.antMatcher("/api/business/**")).hasAnyRole("USER", "ADMIN")
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(multipartRequestFilter, UsernamePasswordAuthenticationFilter.class)
