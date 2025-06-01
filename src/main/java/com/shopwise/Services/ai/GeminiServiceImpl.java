@@ -30,8 +30,8 @@ public class GeminiServiceImpl implements GeminiService {
     Dotenv dotenv = Dotenv.configure().load();
     private final String apiKey;
     
-    @Value("${gemini.model.name:gemini-2.0-flash}")
-    private String modelName;
+//    @Value("${gemini.model.name}")
+    private final String modelName = dotenv.get("GEMINI_MODEL_NAME");
     
     private static final String GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
 
