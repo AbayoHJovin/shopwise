@@ -74,6 +74,7 @@ public class AppConfig {
                                 "/api/auth/**",
                                 "/api/password/**"
                         ).permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/api/public/**").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/user/**").hasAnyRole("USER", "ADMIN")
