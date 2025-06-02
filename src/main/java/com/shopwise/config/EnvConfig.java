@@ -32,7 +32,11 @@ public class EnvConfig {
             setEnvIfPresent(dotenv, "CLOUDINARY_CLOUD_NAME");
             setEnvIfPresent(dotenv, "CLOUDINARY_API_KEY");
             setEnvIfPresent(dotenv, "CLOUDINARY_API_SECRET");
-            
+
+            //GEMINI configuration
+            setEnvIfPresent(dotenv, "GEMINI_API_KEY");
+            setEnvIfPresent(dotenv, "GEMINI_MODEL_NAME");
+            setEnvIfPresent(dotenv, "GEMINI_PROJECT_ID");
             log.info("Environment variables loaded successfully");
         } catch (Exception e) {
             log.error("Error loading environment variables: {}", e.getMessage(), e);
