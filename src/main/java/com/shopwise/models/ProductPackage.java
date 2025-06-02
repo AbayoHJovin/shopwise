@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
+@Table(name = "product_packages")
 @Getter
 @Setter
 @AllArgsConstructor

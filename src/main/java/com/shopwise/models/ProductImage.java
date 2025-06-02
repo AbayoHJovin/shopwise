@@ -9,6 +9,7 @@ import lombok.Setter;
 import java.util.UUID;
 
 @Entity
+@Table(name = "product_images")
 @Getter
 @Setter
 @AllArgsConstructor
