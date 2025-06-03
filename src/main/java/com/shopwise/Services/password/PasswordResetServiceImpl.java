@@ -67,7 +67,7 @@ public class PasswordResetServiceImpl implements PasswordResetService {
         
         // Generate reset link
         // Frontend URL for password reset page
-        String frontendUrl = "http://localhost:8080";
+        String frontendUrl = "https://shopwise-self.vercel.app";
         String resetLink = frontendUrl + "/reset-password?token=" + token;
         
         try {
