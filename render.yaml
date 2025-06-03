@@ -2,6 +2,7 @@ services:
   - type: web
     name: shopwise
     runtime: docker
+    rootDir: .
     plan: free
     healthCheckPath: /actuator/health
     envVars:
