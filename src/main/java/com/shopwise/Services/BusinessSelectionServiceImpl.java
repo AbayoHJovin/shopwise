@@ -65,6 +65,8 @@ public class BusinessSelectionServiceImpl implements BusinessSelectionService {
         Cookie cookie = new Cookie("selectedBusiness", businessId.toString());
         cookie.setHttpOnly(true); // For security, prevent JavaScript access
         cookie.setPath("/");
+        cookie.setSecure(true); // Ensure cookie is only sent over HTTPS
+        cookie.setAttribute("SameSite", "None"); // Required for cross-origin cookies
         cookie.setMaxAge(30 * 24 * 60 * 60); // 30 days
         response.addCookie(cookie);
 

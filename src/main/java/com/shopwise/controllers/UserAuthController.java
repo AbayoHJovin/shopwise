@@ -95,6 +95,8 @@ public class UserAuthController {
         Cookie cookie = new Cookie("accessToken", null);
         cookie.setHttpOnly(true);
         cookie.setPath("/");
+        cookie.setSecure(true); // Ensure cookie is only sent over HTTPS
+        cookie.setAttribute("SameSite", "None"); // Required for cross-origin cookies
         cookie.setMaxAge(0); // Expire immediately
         response.addCookie(cookie);
         

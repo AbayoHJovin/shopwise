@@ -274,6 +274,8 @@ public class BusinessController {
             // Clear the selectedBusiness cookie since the business has been deleted
             Cookie cookie = new Cookie("selectedBusiness", null);
             cookie.setPath("/");
+            cookie.setAttribute("SameSite", "None"); // Required for cross-origin cookies
+            cookie.setSecure(true); // Ensure cookie is only sent over HTTPS
             cookie.setMaxAge(0); // Expire immediately
             httpResponse.addCookie(cookie);
             
