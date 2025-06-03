@@ -54,9 +54,9 @@ public class UserAuthController {
             cookie.setHttpOnly(true);
             cookie.setPath("/");
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
-            response.addCookie(cookie);
             cookie.setAttribute("SameSite", "None"); // Required for cross-origin cookies
-            
+            response.addCookie(cookie);
+
             // Return success response
             Map<String, String> responseBody = new HashMap<>();
             responseBody.put("message", "Login successful");
