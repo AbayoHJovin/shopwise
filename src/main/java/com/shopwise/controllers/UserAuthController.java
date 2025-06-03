@@ -50,10 +50,12 @@ public class UserAuthController {
             
             // Set the token in an HTTP-only cookie
             Cookie cookie = new Cookie("accessToken", jwt);
+            cookie.setSecure(true); // Ensure cookie is only sent over HTTPS
             cookie.setHttpOnly(true);
             cookie.setPath("/");
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
             response.addCookie(cookie);
+            cookie.setAttribute("SameSite", "None"); // Required for cross-origin cookies
             
             // Return success response
             Map<String, String> responseBody = new HashMap<>();

@@ -180,9 +180,11 @@ public class BusinessSelectionController {
         try {
             // Clear the selected business cookie
             Cookie cookie = new Cookie("selectedBusiness", null);
+            cookie.setSecure(true); // Ensure cookie is only sent over HTTPS
             cookie.setHttpOnly(true);
             cookie.setPath("/");
             cookie.setMaxAge(0); // Expire immediately
+            cookie.setAttribute("SameSite", "None"); // Required for cross-origin cookies
             response.addCookie(cookie);
             
             Map<String, String> successResponse = new HashMap<>();
