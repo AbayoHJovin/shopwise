@@ -3,6 +3,10 @@ services:
     name: shopwise
     runtime: docker
     rootDir: .
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand:
+    preDeployCommand:
     plan: free
     healthCheckPath: /actuator/health
     envVars:
